@@ -55,7 +55,7 @@
   });
 </script>
 
-<!-- MANTRA WAJIB BUAT PETA GRATISAN -->
+<!-- MANTRA WAJIB BUAT PETA -->
 <svelte:head>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -95,11 +95,11 @@
   <!-- 1. Hero Banner -->
   <div class="relative h-[80vh] flex items-center justify-center bg-slate-900">
     <div class="absolute inset-0">
-      <img src="https://images.unsplash.com/photo-1542385151-efd9000785a0?q=80&w=2000&auto=format&fit=crop" class="w-full h-full object-cover opacity-40" alt="Jorong Lubuak Pulai" />
+      <img src="https://knurnsmwprpdfhwenbpo.supabase.co/storage/v1/object/public/Asset/banner.jpg" class="w-full h-full object-cover opacity-40" alt="Jorong Lubuak Pulai" />
     </div>
     <div class="relative z-10 text-center px-4 max-w-4xl mx-auto">
-      <p class="text-sm md:text-base text-emerald-400 font-semibold mb-4 tracking-widest uppercase">Satu Klik untuk Mengenal Jorong Lubuak Pulai</p>
-      <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight drop-shadow-lg">Website Resmi <br /><span class="text-emerald-400">Jorong Lubuak Pulai</span></h1>
+      <p class="text-sm md:text-base text-emerald-400 font-semibold mb-4 tracking-widest uppercase">Satu Klik untuk Mengenal Nagari Sirukam</p>
+      <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight drop-shadow-lg">Website Resmi <br /><span class="text-emerald-400">Nagari Sirukam</span></h1>
       <p class="text-lg md:text-xl text-gray-300 mb-10 font-light drop-shadow-md">"Mengenal Potensi, Budaya, dan Kehidupan Masyarakat Nagari Sirukam secara Digital."</p>
       <div class="flex flex-col sm:flex-row justify-center gap-4">
         <a href="#wisata" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 px-8 rounded-md transition shadow-md">Jelajahi Wisata</a>
@@ -112,7 +112,7 @@
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12 relative z-20">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 bg-white rounded-xl shadow-xl p-6 md:p-8 border border-gray-100">
       <div class="text-center"><div class="text-3xl md:text-4xl font-bold text-slate-800">1.200+</div><div class="text-sm text-slate-500 mt-1">Penduduk</div></div>
-      <div class="text-center border-l border-gray-100"><div class="text-3xl md:text-4xl font-bold text-slate-800">450</div><div class="text-sm text-slate-500 mt-1">Kepala Keluarga</div></div>
+      <div class="text-center border-l border-gray-100"><div class="text-3xl md:text-4xl font-bold text-slate-800">321</div><div class="text-sm text-slate-500 mt-1">Kepala Keluarga</div></div>
       <div class="text-center border-l border-gray-100"><div class="text-3xl md:text-4xl font-bold text-slate-800">30+</div><div class="text-sm text-slate-500 mt-1">UMKM Aktif</div></div>
       <div class="text-center border-l border-gray-100"><div class="text-3xl md:text-4xl font-bold text-slate-800">5</div><div class="text-sm text-slate-500 mt-1">Destinasi Wisata</div></div>
     </div>
