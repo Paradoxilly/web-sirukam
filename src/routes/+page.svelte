@@ -9,6 +9,21 @@
   
   let mapInstance; // Buat nampung peta biar ga dobel
 
+  // Fungsi Pintar Format Rupiah
+  function formatRupiah(harga) {
+    if (!harga) return '';
+    // Cek apakah inputannya HANYA angka (tanpa huruf/simbol)
+    if (/^\d+$/.test(harga.toString().trim())) {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0
+      }).format(harga);
+    }
+    // Kalau dia udah ngetik manual pakai "Rp" atau ngetik "10rb - 20rb", biarin aslinya
+    return harga;
+  }
+
   onMount(async () => {
     // Tarik data Wisata (semua wisata biar masuk ke peta)
     const { data: dataWisata } = await supabase.from('wisata').select('*').order('created_at', { ascending: false });
@@ -130,7 +145,7 @@
         </div>
       </div>
       <div class="rounded-xl overflow-hidden shadow-lg h-96 bg-gray-200">
-        <img src="https://images.unsplash.com/photo-1577563908411-5077b6dc7624?q=80&w=800&auto=format&fit=crop" class="w-full h-full object-cover" alt="Balai Desa" />
+        <img src="https://knurnsmwprpdfhwenbpo.supabase.co/storage/v1/object/public/Asset/dont%20even%20joke%20lad.jpg" class="w-full h-full object-cover" alt="Balai Desa" />
       </div>
     </div>
   </div>
@@ -194,28 +209,84 @@
     </div>
   </section>
 
-  <!-- ================= SECTION: UMKM ================= -->
+<!-- ================= SECTION: UMKM ================= -->
   <section id="umkm" class="py-20 bg-white border-t border-gray-200">
-    <!-- (Isi UMKM sama persis kayak yang lu desain) -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <!-- Judul Bagian -->
       <div class="text-center mb-12">
         <div class="w-16 h-1 bg-emerald-500 mx-auto mb-4"></div>
         <h2 class="text-3xl font-bold text-slate-800">Lapak Warga (UMKM)</h2>
         <p class="text-slate-500 mt-2">Dukung perekonomian lokal dengan membeli produk warga kami</p>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <!-- Grid Daftar UMKM -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
         {#each umkmList as umkm}
-          <div class="bg-slate-50 p-6 rounded-xl border border-gray-100 hover:shadow-lg transition duration-300 group">
-            <span class="inline-block px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full mb-4">{umkm.kategori}</span>
-            <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-emerald-600 transition">{umkm.nama_usaha}</h3>
-            <p class="text-slate-600 font-medium mb-6">{umkm.harga}</p>
-            <a href="https://wa.me/{umkm.nomor_wa.replace(/^0/, '62')}" target="_blank" class="flex items-center justify-center gap-2 w-full bg-emerald-600 text-white py-2.5 rounded shadow-sm hover:bg-emerald-700 transition">
-              Beli via WhatsApp
-            </a>
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group overflow-hidden flex flex-col">
+            
+            <!-- 1. Banner Sampul Atas -->
+            <div class="relative h-32 bg-slate-200 overflow-hidden">
+              {#if umkm.banner_url}
+                <img src={umkm.banner_url} alt="Banner" class="w-full h-full object-cover group-hover:scale-105 transition duration-500" loading="lazy" />
+              {:else}
+                <div class="w-full h-full bg-gradient-to-r from-emerald-500 to-teal-400"></div>
+              {/if}
+              <span class="absolute top-3 right-3 px-3 py-1 bg-white/90 backdrop-blur text-emerald-700 text-xs font-bold rounded-full shadow-sm">{umkm.kategori}</span>
+            </div>
+
+            <!-- 2. Foto Profil Produk -->
+            <div class="px-6 relative flex justify-between items-end -mt-10 mb-4">
+              <div class="w-20 h-20 bg-white rounded-xl shadow-md p-1 border border-slate-100 flex-shrink-0">
+                {#if umkm.foto_url}
+                  <img src={umkm.foto_url} alt="Produk" class="w-full h-full object-cover rounded-lg" loading="lazy" />
+                {:else}
+                  <div class="w-full h-full bg-slate-100 rounded-lg flex items-center justify-center text-2xl">🛍️</div>
+                {/if}
+              </div>
+            </div>
+
+            <!-- 3. Deskripsi & Info -->
+            <div class="px-6 pb-6 flex-1 flex flex-col">
+              <h3 class="font-bold text-xl text-slate-800 mb-1">{umkm.nama_usaha}</h3>
+              <p class="text-emerald-600 font-bold text-sm mb-3">{formatRupiah(umkm.harga)}</p>
+              
+              <p class="text-slate-500 text-sm mb-6 line-clamp-3">
+                {umkm.deskripsi || 'Lapak ini belum menambahkan deskripsi produk.'}
+              </p>
+
+              <!-- Tombol Beli -->
+              <a href="https://wa.me/{umkm.nomor_wa.replace(/^0/, '62')}" target="_blank" class="mt-auto flex items-center justify-center gap-2 w-full bg-slate-900 text-white py-3 rounded-xl shadow-sm hover:bg-emerald-600 transition duration-300 font-medium">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-whatsapp" viewBox="0 0 16 16"><path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/></svg>
+                Hubungi via WhatsApp
+              </a>
+            </div>
           </div>
         {/each}
       </div>
+
+      <!-- ================= TOMBOL CTA DAFTAR LAPAK WOK ================= -->
+      <div class="mt-16 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-3xl p-8 md:p-12 border border-emerald-100 shadow-sm text-center relative overflow-hidden group">
+        <!-- Elemen Dekorasi Biar Mewah -->
+        <div class="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-emerald-200/50 rounded-full blur-3xl group-hover:bg-emerald-300/50 transition duration-700"></div>
+        <div class="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 bg-teal-200/50 rounded-full blur-3xl group-hover:bg-teal-300/50 transition duration-700"></div>
+        
+        <div class="relative z-10">
+          <div class="text-4xl mb-4">🏪</div>
+          <h3 class="text-2xl md:text-3xl font-bold text-slate-800 mb-3 tracking-tight">Punya Usaha di Nagari Sirukam?</h3>
+          <p class="text-slate-600 mb-8 max-w-xl mx-auto text-sm md:text-base">
+            Tingkatkan jangkauan pembeli dan majukan perekonomian lokal dengan mendaftarkan lapak Anda ke etalase digital Nagari secara <b>Gratis!</b>
+          </p>
+          
+          <a href="/register" class="inline-flex items-center justify-center gap-2 bg-emerald-600 text-white font-bold px-8 py-3.5 rounded-xl hover:bg-emerald-700 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-shop" viewBox="0 0 16 16">
+              <path d="M2.97 1.35A1 1 0 0 1 3.73 1h8.54a1 1 0 0 1 .76.35l2.609 3.044A1.5 1.5 0 0 1 16 5.37v.255a2.375 2.375 0 0 1-4.25 1.458A2.371 2.371 0 0 1 9.875 8 2.37 2.37 0 0 1 8 7.083 2.37 2.37 0 0 1 6.125 8a2.37 2.37 0 0 1-1.875-.917A2.375 2.375 0 0 1 0 5.625V5.37a1.5 1.5 0 0 1 .361-.976l2.61-3.045zm1.78 4.275a1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0 1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0 1.375 1.375 0 1 0 2.75 0V5.37a.5.5 0 0 0-.12-.325L12.27 2H3.73L1.12 5.045A.5.5 0 0 0 1 5.37v.255a1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0zM1.5 8.5A.5.5 0 0 1 2 9v6h1v-5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v5h6V9a.5.5 0 0 1 1 0v6h.5a.5.5 0 0 1 0 1H.5a.5.5 0 0 1 0-1H1V8.5z"/>
+            </svg>
+            Daftarkan Lapak Anda
+          </a>
+        </div>
+      </div>
+
     </div>
   </section>
 
