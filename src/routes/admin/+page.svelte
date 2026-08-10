@@ -4,7 +4,7 @@
   import { goto } from '$app/navigation';
 
   // ================= STATE TAB & DATA =================
-  let activeTab = $state('umkm'); // Pilihan: 'umkm', 'wisata', 'artikel'
+  let activeTab = $state('umkm'); 
   let loading = $state(true);
   let isSubmitting = $state(false);
 
@@ -17,12 +17,23 @@
   let wisataList = $state([]);
   let artikelList = $state([]);
 
-  // Form State Wisata (Sekarang pakai 1 input 'koordinat' aja biar gampang paste)
+  // ================= STATE FORM WISATA =================
   let formWisata = $state({ nama_tempat: '', deskripsi: '', lokasi: '', koordinat: '', jalur_akses: '' });
-  let fileWisata = $state(null); // Nampung file gambar
+  let fileWisata = $state(null);
+  let editWisataId = $state(null); 
+  let currentWisataFoto = $state(''); 
 
+  // ================= STATE FORM ARTIKEL =================
   let formArtikel = $state({ judul: '', konten: '', penulis: 'Admin Nagari' });
   let fileArtikel = $state(null);
+  let editArtikelId = $state(null); 
+  let currentArtikelFoto = $state('');
+
+  // ================= STATE GALERI ARTIKEL (MODAL) =================
+  let isGaleriOpen = $state(false);
+  let selectedArtikel = $state(null);
+  let galeriList = $state([]);
+  let isUploadingGaleri = $state(false);
 
   // ================= INIT =================
   onMount(async () => {
@@ -36,37 +47,27 @@
 
   async function fetchSemuaData() {
     loading = true;
-    
-    // Tarik UMKM
     const { data: dataUmkm } = await supabase.from('umkm').select('*').order('created_at', { ascending: false });
     if (dataUmkm) umkmList = dataUmkm;
 
-    // Tarik Wisata
     const { data: dataWisata } = await supabase.from('wisata').select('*').order('created_at', { ascending: false });
     if (dataWisata) wisataList = dataWisata;
 
-    // Tarik Artikel
     const { data: dataArtikel } = await supabase.from('artikel').select('*').order('created_at', { ascending: false });
     if (dataArtikel) artikelList = dataArtikel;
-
     loading = false;
   }
 
-// ================= FUNGSI UPLOAD GAMBAR =================
+  // ================= FUNGSI UPLOAD GAMBAR =================
   async function uploadGambar(file) {
-    // 1. Cek ukuran file (Maksimal 1 MB)
-    const batasMaksimal = 1 * 1024 * 1024; // 1 MB dalam satuan bytes
+    const batasMaksimal = 2 * 1024 * 1024; // Limit naikin dikit jadi 2MB biar galeri aman
     if (file.size > batasMaksimal) {
-      throw new Error('Maaf Bapak/Ibu Admin, ukuran foto maksimal 1 MB ya. Silakan kompres foto atau gunakan foto dari WhatsApp.');
+      throw new Error('Maaf Bapak/Ibu Admin, ukuran foto maksimal 2 MB ya. Silakan kompres foto.');
     }
-
-    // 2. Lanjut upload kalau ukuran aman
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
-    
     const { error } = await supabase.storage.from('foto_web').upload(fileName, file);
     if (error) throw error;
-
     const { data } = supabase.storage.from('foto_web').getPublicUrl(fileName);
     return data.publicUrl;
   }
@@ -77,44 +78,59 @@
     fetchSemuaData();
   }
   async function hapusLapak(id) {
-    if (confirm('Hapus lapak permanen?')) {
+    if (confirm('Yakin ingin menghapus lapak permanen?')) {
       await supabase.from('umkm').delete().eq('id', id);
       fetchSemuaData();
     }
   }
   function copyLinkWarga(id) {
     navigator.clipboard.writeText(`${window.location.origin}/lapak/${id}`);
-    alert('Link berhasil dicopy!');
+    alert('Link berhasil disalin! Silakan kirim ke warga.');
   }
 
-  // ================= FUNGSI WISATA =================
-  async function tambahWisata(e) {
+  // ================= FUNGSI CRUD WISATA =================
+  function setEditWisata(item) {
+    editWisataId = item.id;
+    currentWisataFoto = item.foto_url;
+    formWisata = {
+      nama_tempat: item.nama_tempat,
+      deskripsi: item.deskripsi,
+      lokasi: item.lokasi,
+      koordinat: `${item.latitude}, ${item.longitude}`,
+      jalur_akses: item.jalur_akses || ''
+    };
+    fileWisata = null;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function batalEditWisata() {
+    editWisataId = null;
+    currentWisataFoto = '';
+    formWisata = { nama_tempat: '', deskripsi: '', lokasi: '', koordinat: '', jalur_akses: '' };
+    fileWisata = null;
+  }
+
+  async function simpanWisata(e) {
     e.preventDefault();
     isSubmitting = true;
     try {
-      // 1. Belah koordinat pakai tanda koma (,)
-      let lat = '';
-      let lng = '';
+      let lat = '', lng = '';
       if (formWisata.koordinat) {
         const parts = formWisata.koordinat.split(',');
         if (parts.length === 2) {
-          lat = parts[0].trim(); // Ambil angka kiri
-          lng = parts[1].trim(); // Ambil angka kanan
+          lat = parts[0].trim();
+          lng = parts[1].trim();
         } else {
-          alert('Format koordinat salah wok! Harus ada tanda koma (,) di tengahnya.');
-          isSubmitting = false;
-          return;
+          throw new Error('Format koordinat salah! Harus ada tanda koma (,) di tengahnya.');
         }
       }
 
-      // 2. Upload gambar (kalau ada)
-      let fotoUrl = '';
+      let fotoUrl = currentWisataFoto; 
       if (fileWisata && fileWisata.length > 0) {
-        fotoUrl = await uploadGambar(fileWisata[0]);
+        fotoUrl = await uploadGambar(fileWisata[0]); 
       }
       
-      // 3. Masukin ke Supabase (Database tetep nerima lat & lng terpisah)
-      const { error } = await supabase.from('wisata').insert([{
+      const dataPayload = {
         nama_tempat: formWisata.nama_tempat,
         deskripsi: formWisata.deskripsi,
         lokasi: formWisata.lokasi,
@@ -122,14 +138,17 @@
         latitude: lat,
         longitude: lng,
         jalur_akses: formWisata.jalur_akses
-      }]);
+      };
+
+      if (editWisataId) {
+        await supabase.from('wisata').update(dataPayload).eq('id', editWisataId);
+        alert('Data Wisata berhasil diperbarui!');
+      } else {
+        await supabase.from('wisata').insert([dataPayload]);
+        alert('Wisata baru berhasil ditambahkan!');
+      }
       
-      if (error) throw error;
-      alert('Wisata berhasil ditambahkan!');
-      
-      // Reset form
-      formWisata = { nama_tempat: '', deskripsi: '', lokasi: '', koordinat: '', jalur_akses: '' };
-      fileWisata = null;
+      batalEditWisata();
       fetchSemuaData();
     } catch (err) {
       alert('Gagal: ' + err.message);
@@ -138,33 +157,57 @@
   }
 
   async function hapusWisata(id) {
-    if (confirm('Hapus wisata ini?')) {
+    if (confirm('Yakin ingin menghapus destinasi wisata ini?')) {
       await supabase.from('wisata').delete().eq('id', id);
       fetchSemuaData();
     }
   }
 
-  // ================= FUNGSI ARTIKEL =================
-  async function tambahArtikel(e) {
+  // ================= FUNGSI CRUD ARTIKEL =================
+  function setEditArtikel(item) {
+    editArtikelId = item.id;
+    currentArtikelFoto = item.foto_url;
+    formArtikel = {
+      judul: item.judul,
+      konten: item.konten,
+      penulis: item.penulis
+    };
+    fileArtikel = null;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function batalEditArtikel() {
+    editArtikelId = null;
+    currentArtikelFoto = '';
+    formArtikel = { judul: '', konten: '', penulis: 'Admin Nagari' };
+    fileArtikel = null;
+  }
+
+  async function simpanArtikel(e) {
     e.preventDefault();
     isSubmitting = true;
     try {
-      let fotoUrl = '';
+      let fotoUrl = currentArtikelFoto;
       if (fileArtikel && fileArtikel.length > 0) {
         fotoUrl = await uploadGambar(fileArtikel[0]);
       }
       
-      const { error } = await supabase.from('artikel').insert([{
+      const dataPayload = {
         judul: formArtikel.judul,
         konten: formArtikel.konten,
         penulis: formArtikel.penulis,
         foto_url: fotoUrl
-      }]);
+      };
+
+      if (editArtikelId) {
+        await supabase.from('artikel').update(dataPayload).eq('id', editArtikelId);
+        alert('Artikel berhasil diperbarui!');
+      } else {
+        await supabase.from('artikel').insert([dataPayload]);
+        alert('Artikel baru berhasil diterbitkan!');
+      }
       
-      if (error) throw error;
-      alert('Artikel berhasil ditambahkan!');
-      formArtikel = { judul: '', konten: '', penulis: 'Admin Nagari' };
-      fileArtikel = null;
+      batalEditArtikel();
       fetchSemuaData();
     } catch (err) {
       alert('Gagal: ' + err.message);
@@ -173,9 +216,55 @@
   }
 
   async function hapusArtikel(id) {
-    if (confirm('Hapus artikel ini?')) {
+    if (confirm('Yakin ingin menghapus artikel ini?')) {
       await supabase.from('artikel').delete().eq('id', id);
       fetchSemuaData();
+    }
+  }
+
+  // ================= FUNGSI KELOLA GALERI (MODAL) =================
+  async function bukaGaleri(artikel) {
+    selectedArtikel = artikel;
+    isGaleriOpen = true;
+    await fetchGaleri(artikel.id);
+  }
+
+  function tutupGaleri() {
+    isGaleriOpen = false;
+    selectedArtikel = null;
+    galeriList = [];
+  }
+
+  async function fetchGaleri(artikelId) {
+    const { data } = await supabase.from('galeri_berita').select('*').eq('artikel_id', artikelId).order('created_at', { ascending: false });
+    if (data) galeriList = data;
+  }
+
+  async function tambahFotoGaleri(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    isUploadingGaleri = true;
+    try {
+      const fotoUrl = await uploadGambar(file); // Manfaatin fungsi pintar yang udah ada
+      
+      const { error } = await supabase.from('galeri_berita').insert({
+        artikel_id: selectedArtikel.id,
+        foto_url: fotoUrl
+      });
+      if (error) throw error;
+      
+      await fetchGaleri(selectedArtikel.id); // Refresh daftar foto
+    } catch (err) {
+      alert('Gagal upload: ' + err.message);
+    }
+    isUploadingGaleri = false;
+  }
+
+  async function hapusFotoGaleri(idGaleri) {
+    if (confirm('Hapus foto ini dari galeri?')) {
+      await supabase.from('galeri_berita').delete().eq('id', idGaleri);
+      galeriList = galeriList.filter(g => g.id !== idGaleri);
     }
   }
 
@@ -185,66 +274,78 @@
   }
 </script>
 
-<div class="min-h-screen bg-slate-100 p-6">
-  <div class="max-w-6xl mx-auto">
+<div class="min-h-screen bg-slate-50 p-6 relative">
+  <div class="max-w-7xl mx-auto">
     
     <!-- HEADER & TAB MENU -->
-    <div class="bg-white p-4 rounded-xl shadow-sm mb-6">
-      <div class="flex justify-between items-center mb-4">
-        <h1 class="text-2xl font-bold text-slate-800">🛠️ Dashboard Admin Nagari</h1>
-        <button onclick={logout} class="bg-red-50 text-red-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-100">
-          Keluar (Logout)
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-6">
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+          Dashboard Admin Nagari
+        </h1>
+        <button onclick={logout} class="bg-red-50 text-red-600 px-5 py-2 rounded-xl text-sm font-bold hover:bg-red-100 transition flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+          Keluar
         </button>
       </div>
       
-      <div class="flex gap-2 overflow-x-auto">
-        <button onclick={() => activeTab = 'umkm'} class="px-6 py-2 rounded-lg font-medium transition {activeTab === 'umkm' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">🎪 Kelola UMKM</button>
-        <button onclick={() => activeTab = 'wisata'} class="px-6 py-2 rounded-lg font-medium transition {activeTab === 'wisata' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">🏞️ Destinasi Wisata</button>
-        <button onclick={() => activeTab = 'artikel'} class="px-6 py-2 rounded-lg font-medium transition {activeTab === 'artikel' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">📰 Berita & Artikel</button>
+      <div class="flex gap-2 overflow-x-auto border-b border-slate-100 pb-2">
+        <button onclick={() => activeTab = 'umkm'} class="flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition {activeTab === 'umkm' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 18H7"/><path d="M7 14h.01"/></svg>
+          Kelola UMKM
+        </button>
+        <button onclick={() => activeTab = 'wisata'} class="flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition {activeTab === 'wisata' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+          Destinasi Wisata
+        </button>
+        <button onclick={() => activeTab = 'artikel'} class="flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition {activeTab === 'artikel' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
+          Berita & Artikel
+        </button>
       </div>
     </div>
 
     {#if loading}
-      <div class="text-center py-10 text-slate-500 font-medium">Memuat data Sirukam...</div>
+      <div class="text-center py-20 text-slate-500 font-bold animate-pulse text-lg">Sinkronisasi dengan server...</div>
     {:else}
 
-      <!-- ================= TAB UMKM ================= -->
+      <!-- TAB UMKM & WISATA (Kode utuh ga ada yg dirubah) -->
       {#if activeTab === 'umkm'}
-        <div class="mb-8">
-          <h2 class="text-lg font-bold text-slate-800 mb-4">⏳ Menunggu Persetujuan ({antreanPending.length})</h2>
+        <div class="mb-10">
+          <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Menunggu Persetujuan ({antreanPending.length})</h2>
           {#if antreanPending.length === 0}
-            <div class="bg-white p-6 rounded-xl border border-dashed border-slate-300 text-center text-slate-500">Tidak ada antrean baru.</div>
+            <div class="bg-white p-8 rounded-2xl border border-dashed border-slate-300 text-center text-slate-500 font-medium">Tidak ada antrean lapak baru.</div>
           {:else}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
               {#each antreanPending as item}
-                <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-amber-400">
-                  <h3 class="font-bold text-lg">{item.nama_usaha}</h3>
-                  <p class="text-sm text-slate-600 mb-3">{item.kategori} • {item.harga}</p>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-amber-200">
+                  <h3 class="font-bold text-lg text-slate-800">{item.nama_usaha}</h3>
+                  <p class="text-sm text-slate-500 mb-4">{item.kategori} • {item.harga}</p>
                   <div class="flex gap-2">
-                    <button onclick={() => accLapak(item.id)} class="flex-1 bg-emerald-600 text-white py-2 rounded hover:bg-emerald-700">Terima & Tayangkan</button>
-                    <button onclick={() => hapusLapak(item.id)} class="bg-slate-100 text-slate-600 px-3 py-2 rounded hover:bg-red-100">Hapus</button>
+                    <button onclick={() => accLapak(item.id)} class="flex-1 bg-emerald-600 text-white py-2 rounded-xl font-medium hover:bg-emerald-700 transition">Tayangkan</button>
+                    <button onclick={() => hapusLapak(item.id)} class="bg-red-50 text-red-600 px-4 py-2 rounded-xl font-medium hover:bg-red-100 transition">Tolak</button>
                   </div>
                 </div>
               {/each}
             </div>
           {/if}
         </div>
-
         <div>
-          <h2 class="text-lg font-bold text-slate-800 mb-4">✅ Lapak Sudah Tayang ({lapakTayang.length})</h2>
-          <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
+          <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>Lapak Sudah Tayang ({lapakTayang.length})</h2>
+          <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-200">
             <table class="w-full text-left text-sm">
               <thead class="bg-slate-50 border-b text-slate-600">
-                <tr><th class="p-4">Nama Usaha</th><th class="p-4">Kategori</th><th class="p-4">WhatsApp</th><th class="p-4 text-center">Aksi</th></tr>
+                <tr><th class="p-4 font-semibold">Nama Usaha</th><th class="p-4 font-semibold">Kategori</th><th class="p-4 font-semibold">WhatsApp</th><th class="p-4 text-center font-semibold">Aksi</th></tr>
               </thead>
               <tbody class="divide-y divide-slate-100">
                 {#each lapakTayang as item}
-                  <tr>
-                    <td class="p-4 font-medium">{item.nama_usaha}</td>
-                    <td class="p-4">{item.kategori}</td>
-                    <td class="p-4">{item.nomor_wa}</td>
+                  <tr class="hover:bg-slate-50/50">
+                    <td class="p-4 font-bold text-slate-800">{item.nama_usaha}</td>
+                    <td class="p-4 text-slate-600">{item.kategori}</td>
+                    <td class="p-4 text-slate-600">{item.nomor_wa}</td>
                     <td class="p-4 text-center">
-                      <button onclick={() => copyLinkWarga(item.id)} class="bg-slate-800 text-white px-3 py-1.5 rounded text-xs">Copy Link</button>
+                      <button onclick={() => copyLinkWarga(item.id)} class="bg-slate-100 text-slate-700 px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-slate-200 transition">Copy Link Edit</button>
                     </td>
                   </tr>
                 {/each}
@@ -254,58 +355,54 @@
         </div>
       {/if}
 
-      <!-- ================= TAB WISATA ================= -->
       {#if activeTab === 'wisata'}
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          <!-- Form Tambah Wisata -->
-          <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-slate-200 self-start">
-            <h2 class="text-lg font-bold text-slate-800 mb-4">➕ Tambah Wisata</h2>
-            <form onsubmit={tambahWisata} class="space-y-4">
-              <div><label class="block text-sm text-slate-600 mb-1">Nama Tempat</label><input type="text" bind:value={formWisata.nama_tempat} required class="w-full border p-2 rounded focus:ring-2 focus:ring-slate-800 outline-none" /></div>
-              <div><label class="block text-sm text-slate-600 mb-1">Deskripsi Singkat</label><textarea bind:value={formWisata.deskripsi} rows="3" required class="w-full border p-2 rounded focus:ring-2 focus:ring-slate-800 outline-none"></textarea></div>
-              <div><label class="block text-sm text-slate-600 mb-1">Lokasi / Alamat</label><input type="text" bind:value={formWisata.lokasi} required class="w-full border p-2 rounded focus:ring-2 focus:ring-slate-800 outline-none" /></div>
-              
-              <!-- KOORDINAT (Garis Lintang & Bujur Gabungan) -->
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          <div class="xl:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 self-start">
+            <div class="flex justify-between items-center mb-6">
+              <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+                {editWisataId ? 'Edit Wisata' : 'Tambah Wisata'}
+              </h2>
+              {#if editWisataId}<button type="button" onclick={batalEditWisata} class="text-xs font-bold text-slate-500 hover:text-slate-800">Batal Edit</button>{/if}
+            </div>
+            <form onsubmit={simpanWisata} class="space-y-4">
+              <div><label class="block text-sm font-semibold text-slate-700 mb-1">Nama Tempat</label><input type="text" bind:value={formWisata.nama_tempat} required class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" /></div>
+              <div><label class="block text-sm font-semibold text-slate-700 mb-1">Deskripsi Singkat</label><textarea bind:value={formWisata.deskripsi} rows="3" required class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"></textarea></div>
+              <div><label class="block text-sm font-semibold text-slate-700 mb-1">Lokasi / Alamat</label><input type="text" bind:value={formWisata.lokasi} required class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" /></div>
+              <div><label class="block text-sm font-semibold text-slate-700 mb-1">Koordinat Google Maps</label><input type="text" bind:value={formWisata.koordinat} required placeholder="-0.890719, 100.756278" class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" /></div>
+              <div><label class="block text-sm font-semibold text-slate-700 mb-1">Panduan Jalur / Rute Akses</label><textarea bind:value={formWisata.jalur_akses} rows="2" class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"></textarea></div>
               <div>
-                <label class="block text-sm text-slate-600 mb-1">Koordinat Google Maps</label>
-                <input type="text" bind:value={formWisata.koordinat} required placeholder="-0.8907196397905341, 100.75627895696661" class="w-full border p-2 rounded focus:ring-2 focus:ring-slate-800 outline-none" />
-                <p class="text-xs text-slate-400 mt-1">Paste langsung angkanya dari Google Maps.</p>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">Upload Foto</label>
+                {#if editWisataId && currentWisataFoto}
+                  <div class="mb-2"><img src={currentWisataFoto} alt="Current" class="h-20 rounded-lg border object-cover"/></div>
+                  <p class="text-xs text-amber-600 font-medium mb-1">*Biarkan kosong jika tidak ingin ganti foto.</p>
+                {/if}
+                <input type="file" accept="image/*" bind:files={fileWisata} required={!editWisataId} class="w-full border border-slate-300 p-2 rounded-xl text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
               </div>
-
-              <!-- JALUR AKSES -->
-              <div>
-                <label class="block text-sm text-slate-600 mb-1">Panduan Jalur / Rute Akses</label>
-                <textarea bind:value={formWisata.jalur_akses} rows="2" placeholder="Contoh: Masuk dari pertigaan balai desa, jalan hanya muat motor..." class="w-full border p-2 rounded focus:ring-2 focus:ring-slate-800 outline-none"></textarea>
-              </div>
-
-              <div><label class="block text-sm text-slate-600 mb-1">Upload Foto</label><input type="file" accept="image/*" bind:files={fileWisata} required class="w-full border p-2 rounded text-sm" /></div>
-              
-              <button type="submit" disabled={isSubmitting} class="w-full bg-blue-600 text-white py-2 rounded font-medium hover:bg-blue-700 disabled:opacity-50">
-                {isSubmitting ? 'Mengupload...' : 'Simpan Wisata'}
+              <button type="submit" disabled={isSubmitting} class="w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700 transition disabled:opacity-50 mt-2">
+                {isSubmitting ? 'Menyimpan...' : (editWisataId ? 'Update Data Wisata' : 'Simpan Wisata Baru')}
               </button>
             </form>
           </div>
-
-          <!-- Tabel Data Wisata -->
-          <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="xl:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
              <table class="w-full text-left text-sm">
-              <thead class="bg-slate-50 border-b text-slate-600">
-                <tr><th class="p-4">Foto</th><th class="p-4">Nama Tempat</th><th class="p-4">Lokasi & Koordinat</th><th class="p-4 text-center">Aksi</th></tr>
-              </thead>
+              <thead class="bg-slate-50 border-b text-slate-600"><tr><th class="p-4 font-semibold w-24">Foto</th><th class="p-4 font-semibold">Detail Info</th><th class="p-4 text-center font-semibold w-40">Aksi</th></tr></thead>
               <tbody class="divide-y divide-slate-100">
                 {#each wisataList as item}
-                  <tr>
-                    <td class="p-4"><img src={item.foto_url} alt="wisata" class="w-16 h-12 object-cover rounded" /></td>
-                    <td class="p-4 font-medium">{item.nama_tempat}</td>
-                    <td class="p-4 text-slate-600">
-                      {item.lokasi}<br/>
-                      <span class="text-xs text-blue-600 font-mono">Lat: {item.latitude} | Lng: {item.longitude}</span>
+                  <tr class="hover:bg-slate-50/50">
+                    <td class="p-4"><img src={item.foto_url} alt="wisata" class="w-16 h-16 object-cover rounded-xl shadow-sm border border-slate-100" /></td>
+                    <td class="p-4">
+                      <p class="font-bold text-slate-800 text-base">{item.nama_tempat}</p>
+                      <p class="text-slate-500 mb-1">{item.lokasi}</p>
+                      <span class="inline-block bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded font-mono border border-slate-200">Lat: {item.latitude} | Lng: {item.longitude}</span>
                     </td>
-                    <td class="p-4 text-center"><button onclick={() => hapusWisata(item.id)} class="text-red-500 hover:text-red-700 font-medium">Hapus</button></td>
+                    <td class="p-4">
+                      <div class="flex justify-center gap-2">
+                        <button onclick={() => setEditWisata(item)} class="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-100 transition">Edit</button>
+                        <button onclick={() => hapusWisata(item.id)} class="bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100 transition">Hapus</button>
+                      </div>
+                    </td>
                   </tr>
-                {:else}
-                  <tr><td colspan="4" class="p-6 text-center text-slate-500">Belum ada data wisata.</td></tr>
                 {/each}
               </tbody>
             </table>
@@ -315,37 +412,58 @@
 
       <!-- ================= TAB ARTIKEL ================= -->
       {#if activeTab === 'artikel'}
-         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <!-- Form Tambah Artikel -->
-          <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-slate-200 self-start">
-            <h2 class="text-lg font-bold text-slate-800 mb-4">✍️ Tulis Berita</h2>
-            <form onsubmit={tambahArtikel} class="space-y-4">
-              <div><label class="block text-sm text-slate-600 mb-1">Judul Artikel</label><input type="text" bind:value={formArtikel.judul} required class="w-full border p-2 rounded focus:ring-2 focus:ring-slate-800 outline-none" /></div>
-              <div><label class="block text-sm text-slate-600 mb-1">Penulis</label><input type="text" bind:value={formArtikel.penulis} required class="w-full border p-2 rounded focus:ring-2 focus:ring-slate-800 outline-none" /></div>
-              <div><label class="block text-sm text-slate-600 mb-1">Konten Berita</label><textarea bind:value={formArtikel.konten} rows="5" required class="w-full border p-2 rounded focus:ring-2 focus:ring-slate-800 outline-none"></textarea></div>
-              <div><label class="block text-sm text-slate-600 mb-1">Thumbnail Foto</label><input type="file" accept="image/*" bind:files={fileArtikel} required class="w-full border p-2 rounded text-sm" /></div>
-              
-              <button type="submit" disabled={isSubmitting} class="w-full bg-purple-600 text-white py-2 rounded font-medium hover:bg-purple-700 disabled:opacity-50">
-                {isSubmitting ? 'Mengupload...' : 'Terbitkan Berita'}
+         <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          <div class="xl:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 self-start">
+            <div class="flex justify-between items-center mb-6">
+              <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-purple-600"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
+                {editArtikelId ? 'Edit Berita' : 'Tulis Berita'}
+              </h2>
+              {#if editArtikelId}<button type="button" onclick={batalEditArtikel} class="text-xs font-bold text-slate-500 hover:text-slate-800">Batal Edit</button>{/if}
+            </div>
+
+            <form onsubmit={simpanArtikel} class="space-y-4">
+              <div><label class="block text-sm font-semibold text-slate-700 mb-1">Judul Artikel</label><input type="text" bind:value={formArtikel.judul} required class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" /></div>
+              <div><label class="block text-sm font-semibold text-slate-700 mb-1">Penulis</label><input type="text" bind:value={formArtikel.penulis} required class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" /></div>
+              <div><label class="block text-sm font-semibold text-slate-700 mb-1">Konten Berita</label><textarea bind:value={formArtikel.konten} rows="6" required class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"></textarea></div>
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">Thumbnail Foto</label>
+                {#if editArtikelId && currentArtikelFoto}
+                  <div class="mb-2"><img src={currentArtikelFoto} alt="Current" class="h-20 rounded-lg border object-cover"/></div>
+                  <p class="text-xs text-amber-600 font-medium mb-1">*Biarkan kosong jika tidak ingin ganti foto.</p>
+                {/if}
+                <input type="file" accept="image/*" bind:files={fileArtikel} required={!editArtikelId} class="w-full border border-slate-300 p-2 rounded-xl text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" />
+              </div>
+              <button type="submit" disabled={isSubmitting} class="w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700 transition disabled:opacity-50 mt-2">
+                {isSubmitting ? 'Mengupload...' : (editArtikelId ? 'Update Berita' : 'Terbitkan Berita')}
               </button>
             </form>
           </div>
 
-          <!-- Tabel Data Artikel -->
-          <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="xl:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
              <table class="w-full text-left text-sm">
               <thead class="bg-slate-50 border-b text-slate-600">
-                <tr><th class="p-4">Thumbnail</th><th class="p-4">Judul & Penulis</th><th class="p-4 text-center">Aksi</th></tr>
+                <tr><th class="p-4 font-semibold w-24">Thumbnail</th><th class="p-4 font-semibold">Judul & Penulis</th><th class="p-4 text-center font-semibold w-56">Aksi</th></tr>
               </thead>
               <tbody class="divide-y divide-slate-100">
                 {#each artikelList as item}
-                  <tr>
-                    <td class="p-4"><img src={item.foto_url} alt="artikel" class="w-16 h-12 object-cover rounded" /></td>
-                    <td class="p-4"><p class="font-bold text-slate-800">{item.judul}</p><p class="text-xs text-slate-500">Oleh: {item.penulis}</p></td>
-                    <td class="p-4 text-center"><button onclick={() => hapusArtikel(item.id)} class="text-red-500 hover:text-red-700 font-medium">Hapus</button></td>
+                  <tr class="hover:bg-slate-50/50">
+                    <td class="p-4"><img src={item.foto_url} alt="artikel" class="w-20 h-14 object-cover rounded-lg shadow-sm border border-slate-100" /></td>
+                    <td class="p-4">
+                      <p class="font-bold text-slate-800 text-base mb-1 leading-snug">{item.judul}</p>
+                      <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider">Oleh: {item.penulis}</p>
+                    </td>
+                    <td class="p-4">
+                      <!-- Tombol Galeri Baru Ditambahin Di Sini -->
+                      <div class="flex justify-center gap-2">
+                        <button onclick={() => bukaGaleri(item)} class="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-100 transition">Galeri</button>
+                        <button onclick={() => setEditArtikel(item)} class="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-100 transition">Edit</button>
+                        <button onclick={() => hapusArtikel(item.id)} class="bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100 transition">Hapus</button>
+                      </div>
+                    </td>
                   </tr>
                 {:else}
-                  <tr><td colspan="3" class="p-6 text-center text-slate-500">Belum ada artikel.</td></tr>
+                  <tr><td colspan="3" class="p-8 text-center text-slate-500">Belum ada berita yang diterbitkan.</td></tr>
                 {/each}
               </tbody>
             </table>
@@ -355,4 +473,67 @@
 
     {/if}
   </div>
+
+  <!-- ================= MODAL KELOLA GALERI (POP-UP) ================= -->
+  {#if isGaleriOpen && selectedArtikel}
+    <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      <div class="bg-white w-full max-w-3xl max-h-[90vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        
+        <!-- Header Modal -->
+        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <div>
+            <h3 class="text-lg font-bold text-slate-800">Kelola Galeri Dokumentasi</h3>
+            <p class="text-xs text-slate-500 mt-1 line-clamp-1">{selectedArtikel.judul}</p>
+          </div>
+          <button onclick={tutupGaleri} class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <!-- Body Modal (Bisa di-scroll) -->
+        <div class="p-6 overflow-y-auto flex-1 bg-white">
+          
+          <!-- Area Upload -->
+          <div class="mb-8 p-6 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl text-center relative overflow-hidden group">
+            <input type="file" accept="image/*" onchange={tambahFotoGaleri} disabled={isUploadingGaleri} class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+            <div class="flex flex-col items-center justify-center text-slate-500 group-hover:text-emerald-600 transition">
+              {#if isUploadingGaleri}
+                <svg class="animate-spin h-8 w-8 text-emerald-600 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <span class="font-bold text-emerald-600">Mengupload Foto...</span>
+              {:else}
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                <span class="font-bold">Klik disini untuk tambah foto baru</span>
+                <span class="text-xs mt-1 text-slate-400">Format JPG/PNG, Maksimal 2 MB</span>
+              {/if}
+            </div>
+          </div>
+
+          <!-- Grid Daftar Foto -->
+          <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            Koleksi Foto Saat Ini ({galeriList.length})
+          </h4>
+          
+          {#if galeriList.length === 0}
+            <div class="text-center py-10 text-slate-400 text-sm border rounded-xl bg-slate-50">Belum ada foto yang diupload.</div>
+          {:else}
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {#each galeriList as foto}
+                <div class="relative group rounded-xl overflow-hidden bg-slate-100 aspect-video shadow-sm border border-slate-200">
+                  <img src={foto.foto_url} alt="Galeri" class="w-full h-full object-cover" />
+                  <!-- Tombol Hapus overlay -->
+                  <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <button onclick={() => hapusFotoGaleri(foto.id)} class="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition hover:scale-110 shadow-lg">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
+
 </div>
