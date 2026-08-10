@@ -1,6 +1,6 @@
 <script>
   import { supabase } from '$lib/supabase';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
 
   let wisataList = $state([]);
   let umkmList = $state([]);
@@ -11,20 +11,41 @@
 
   // STATE BARU BUAT HP: Nampung ID wisata yang lagi di-klik/mekar
   let expandedWisataId = $state(null);
+  
+  // STATE BARU BUAT SLIDESHOW: Angka yang bakal jalan terus
+  let carouselIndex = $state(0);
+  let sliderInterval;
 
-  // Fungsi Pintar Format Rupiah
+// Fungsi Pintar Format Rupiah (Udah Support Range / Dash)
   function formatRupiah(harga) {
     if (!harga) return '';
-    if (/^\d+$/.test(harga.toString().trim())) {
-      return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0
-      }).format(harga);
-    }
-    return harga;
-  }
+    const strHarga = harga.toString().trim();
 
+    // Fungsi asisten buat ngerupiahin satu angka
+    const formatAngka = (angka) => {
+      const cleanAngka = angka.trim();
+      // Kalo isinya cuma angka, sikat kasih Rp
+      if (/^\d+$/.test(cleanAngka)) {
+        return new Intl.NumberFormat('id-ID', {
+          style: 'currency',
+          currency: 'IDR',
+          minimumFractionDigits: 0
+        }).format(cleanAngka);
+      }
+      // Kalo ada hurufnya (misal "10rb"), biarin aja
+      return cleanAngka; 
+    };
+
+    // Kalo dia pake dash (misal: 50000 - 250000)
+    if (strHarga.includes('-')) {
+      const parts = strHarga.split('-');
+      // Format kiri dan kanan, terus gabungin lagi pake dash
+      return parts.map(p => formatAngka(p)).join(' - ');
+    } else {
+      // Kalo cuma 1 angka (misal: 10000)
+      return formatAngka(strHarga);
+    }
+  }
   // FUNGSI BARU: Buat buka/tutup kartu wisata pas di klik (Mobile Friendly)
   function toggleWisata(id) {
     if (expandedWisataId === id) {
@@ -35,6 +56,11 @@
   }
 
   onMount(async () => {
+    // Jalankan timer untuk Slideshow Otomatis (ganti tiap 3 detik / 3000ms)
+    sliderInterval = setInterval(() => {
+      carouselIndex++;
+    }, 3000);
+
     const { data: dataWisata } = await supabase.from('wisata').select('*').order('created_at', { ascending: false });
     if (dataWisata) wisataList = dataWisata;
 
@@ -70,6 +96,11 @@
         });
       }
     }, 200);
+  });
+
+  // Matiin timer kalo pindah halaman biar ga menuhin memori
+  onDestroy(() => {
+    if (sliderInterval) clearInterval(sliderInterval);
   });
 </script>
 
@@ -208,9 +239,12 @@
           <div id="map" class="w-full h-full rounded-2xl z-0"></div>
         </div>
 
-        <!-- DAFTAR WISATA YANG UDAH DIBENERIN BUAT HP -->
+        <!-- DAFTAR WISATA -->
         <div class="lg:col-span-1 flex flex-col gap-4 h-[550px] overflow-y-auto pr-3 custom-scrollbar">
           {#each wisataList as wisata}
+            <!-- Ambil semua link foto terus jadiin array -->
+            {@const fotoArray = wisata.foto_url.split(',')}
+
             <div 
               onclick={() => toggleWisata(wisata.id)}
               class="bg-white rounded-2xl shadow-sm border p-6 cursor-pointer transition-all duration-300 {expandedWisataId === wisata.id ? 'border-emerald-500 shadow-lg' : 'border-slate-200 hover:border-emerald-500'}"
@@ -226,8 +260,32 @@
               <!-- Konten Sembunyi dipicu oleh state -->
               <div class="grid transition-all duration-500 ease-in-out {expandedWisataId === wisata.id ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}">
                 <div class="overflow-hidden">
-                  <div class="pt-4 mt-4 border-t border-slate-100">
-                    <img src={wisata.foto_url} loading="lazy" alt={wisata.nama_tempat} class="w-full h-36 object-cover rounded-xl mb-4 shadow-sm" />
+                  <div class="pt-4 mt-4 border-t border-slate-100 cursor-default" onclick={(e) => e.stopPropagation()}>
+                    
+                    <!-- ================= AUTO SLIDESHOW WISATA (ALA PPT) ================= -->
+                    <div class="relative w-full h-40 mb-4 rounded-xl overflow-hidden shadow-sm bg-slate-900">
+                      
+                      <!-- Gambar-gambarnya bakal tumpang tindih, opacity diatur otomatis -->
+                      {#each fotoArray as foto, index}
+                        <img 
+                          src={foto} 
+                          loading="lazy" 
+                          alt={wisata.nama_tempat} 
+                          class="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out {index === (carouselIndex % fotoArray.length) ? 'opacity-100' : 'opacity-0'}" 
+                        />
+                      {/each}
+
+                      <!-- Indikator Titik (Dots) cuma muncul kalo fotonya lebih dari 1 -->
+                      {#if fotoArray.length > 1}
+                        <div class="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5 z-10">
+                          {#each fotoArray as _, index}
+                            <div class="w-1.5 h-1.5 rounded-full transition-colors duration-500 {index === (carouselIndex % fotoArray.length) ? 'bg-white scale-125' : 'bg-white/40'}"></div>
+                          {/each}
+                        </div>
+                      {/if}
+
+                    </div>
+                    
                     <p class="text-sm text-slate-600 line-clamp-3 mb-4 font-medium leading-relaxed">{wisata.deskripsi}</p>
                     <a href="https://www.google.com/maps/dir/?api=1&destination={wisata.latitude},{wisata.longitude}" target="_blank" class="inline-flex items-center gap-1 text-sm font-bold text-emerald-600 hover:text-emerald-700 hover:underline">
                       Rute Maps <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>

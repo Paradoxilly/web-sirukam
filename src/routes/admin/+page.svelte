@@ -60,7 +60,7 @@
 
   // ================= FUNGSI UPLOAD GAMBAR =================
   async function uploadGambar(file) {
-    const batasMaksimal = 2 * 1024 * 1024; // Limit naikin dikit jadi 2MB biar galeri aman
+    const batasMaksimal = 2 * 1024 * 1024; // Limit 2MB
     if (file.size > batasMaksimal) {
       throw new Error('Maaf Bapak/Ibu Admin, ukuran foto maksimal 2 MB ya. Silakan kompres foto.');
     }
@@ -78,7 +78,7 @@
     fetchSemuaData();
   }
   async function hapusLapak(id) {
-    if (confirm('Yakin ingin menghapus lapak permanen?')) {
+    if (confirm('Yakin ingin menghapus lapak ini secara permanen?')) {
       await supabase.from('umkm').delete().eq('id', id);
       fetchSemuaData();
     }
@@ -126,8 +126,17 @@
       }
 
       let fotoUrl = currentWisataFoto; 
+      
+      // LOGIKA BARU: BISA UPLOAD BANYAK FOTO (Maks 4)
       if (fileWisata && fileWisata.length > 0) {
-        fotoUrl = await uploadGambar(fileWisata[0]); 
+        if (fileWisata.length > 4) {
+          throw new Error('Maaf wok, maksimal upload 4 foto wisata sekaligus!');
+        }
+        let urls = [];
+        for (let i = 0; i < fileWisata.length; i++) {
+          urls.push(await uploadGambar(fileWisata[i]));
+        }
+        fotoUrl = urls.join(','); // Gabungin link-nya pake koma
       }
       
       const dataPayload = {
@@ -246,7 +255,7 @@
 
     isUploadingGaleri = true;
     try {
-      const fotoUrl = await uploadGambar(file); // Manfaatin fungsi pintar yang udah ada
+      const fotoUrl = await uploadGambar(file); 
       
       const { error } = await supabase.from('galeri_berita').insert({
         artikel_id: selectedArtikel.id,
@@ -254,7 +263,7 @@
       });
       if (error) throw error;
       
-      await fetchGaleri(selectedArtikel.id); // Refresh daftar foto
+      await fetchGaleri(selectedArtikel.id); 
     } catch (err) {
       alert('Gagal upload: ' + err.message);
     }
@@ -310,7 +319,7 @@
       <div class="text-center py-20 text-slate-500 font-bold animate-pulse text-lg">Sinkronisasi dengan server...</div>
     {:else}
 
-      <!-- TAB UMKM & WISATA (Kode utuh ga ada yg dirubah) -->
+      <!-- ================= TAB UMKM ================= -->
       {#if activeTab === 'umkm'}
         <div class="mb-10">
           <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Menunggu Persetujuan ({antreanPending.length})</h2>
@@ -336,7 +345,7 @@
           <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-200">
             <table class="w-full text-left text-sm">
               <thead class="bg-slate-50 border-b text-slate-600">
-                <tr><th class="p-4 font-semibold">Nama Usaha</th><th class="p-4 font-semibold">Kategori</th><th class="p-4 font-semibold">WhatsApp</th><th class="p-4 text-center font-semibold">Aksi</th></tr>
+                <tr><th class="p-4 font-semibold">Nama Usaha</th><th class="p-4 font-semibold">Kategori</th><th class="p-4 font-semibold">WhatsApp</th><th class="p-4 text-center font-semibold w-56">Aksi</th></tr>
               </thead>
               <tbody class="divide-y divide-slate-100">
                 {#each lapakTayang as item}
@@ -344,8 +353,12 @@
                     <td class="p-4 font-bold text-slate-800">{item.nama_usaha}</td>
                     <td class="p-4 text-slate-600">{item.kategori}</td>
                     <td class="p-4 text-slate-600">{item.nomor_wa}</td>
-                    <td class="p-4 text-center">
-                      <button onclick={() => copyLinkWarga(item.id)} class="bg-slate-100 text-slate-700 px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-slate-200 transition">Copy Link Edit</button>
+                    <td class="p-4">
+                      <!-- TOMBOL HAPUS UMKM DITAMBAHIN DISINI WOK -->
+                      <div class="flex justify-center gap-2">
+                        <button onclick={() => copyLinkWarga(item.id)} class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-slate-200 transition">Copy Link Edit</button>
+                        <button onclick={() => hapusLapak(item.id)} class="bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-100 transition">Hapus</button>
+                      </div>
                     </td>
                   </tr>
                 {/each}
@@ -355,6 +368,7 @@
         </div>
       {/if}
 
+      <!-- ================= TAB WISATA ================= -->
       {#if activeTab === 'wisata'}
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
           <div class="xl:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 self-start">
@@ -371,14 +385,23 @@
               <div><label class="block text-sm font-semibold text-slate-700 mb-1">Lokasi / Alamat</label><input type="text" bind:value={formWisata.lokasi} required class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" /></div>
               <div><label class="block text-sm font-semibold text-slate-700 mb-1">Koordinat Google Maps</label><input type="text" bind:value={formWisata.koordinat} required placeholder="-0.890719, 100.756278" class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" /></div>
               <div><label class="block text-sm font-semibold text-slate-700 mb-1">Panduan Jalur / Rute Akses</label><textarea bind:value={formWisata.jalur_akses} rows="2" class="w-full border border-slate-300 p-2.5 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"></textarea></div>
+              
               <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-1">Upload Foto</label>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">Upload Foto (Maks 4 Foto)</label>
                 {#if editWisataId && currentWisataFoto}
-                  <div class="mb-2"><img src={currentWisataFoto} alt="Current" class="h-20 rounded-lg border object-cover"/></div>
+                  <!-- Loop buat nampilin preview foto lama kalo pas mode edit -->
+                  <div class="mb-2 flex gap-2 overflow-x-auto hide-scrollbar">
+                    {#each currentWisataFoto.split(',') as pic}
+                      <img src={pic} alt="Current" class="h-16 w-24 rounded-lg border object-cover shrink-0"/>
+                    {/each}
+                  </div>
                   <p class="text-xs text-amber-600 font-medium mb-1">*Biarkan kosong jika tidak ingin ganti foto.</p>
                 {/if}
-                <input type="file" accept="image/*" bind:files={fileWisata} required={!editWisataId} class="w-full border border-slate-300 p-2 rounded-xl text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                <!-- ATTRIBUTE multiple DITAMBAHIN DISINI WOK -->
+                <input type="file" accept="image/*" multiple bind:files={fileWisata} required={!editWisataId} class="w-full border border-slate-300 p-2 rounded-xl text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                <p class="text-[10px] text-slate-400 mt-1">Tekan CTRL/Tahan Layar untuk memilih lebih dari 1 foto.</p>
               </div>
+
               <button type="submit" disabled={isSubmitting} class="w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700 transition disabled:opacity-50 mt-2">
                 {isSubmitting ? 'Menyimpan...' : (editWisataId ? 'Update Data Wisata' : 'Simpan Wisata Baru')}
               </button>
@@ -390,7 +413,8 @@
               <tbody class="divide-y divide-slate-100">
                 {#each wisataList as item}
                   <tr class="hover:bg-slate-50/50">
-                    <td class="p-4"><img src={item.foto_url} alt="wisata" class="w-16 h-16 object-cover rounded-xl shadow-sm border border-slate-100" /></td>
+                    <!-- Ngambil gambar pertama aja buat dipajang di tabel (split(',') indeks 0) -->
+                    <td class="p-4"><img src={item.foto_url.split(',')[0]} alt="wisata" class="w-16 h-16 object-cover rounded-xl shadow-sm border border-slate-100" /></td>
                     <td class="p-4">
                       <p class="font-bold text-slate-800 text-base">{item.nama_tempat}</p>
                       <p class="text-slate-500 mb-1">{item.lokasi}</p>
@@ -454,7 +478,6 @@
                       <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider">Oleh: {item.penulis}</p>
                     </td>
                     <td class="p-4">
-                      <!-- Tombol Galeri Baru Ditambahin Di Sini -->
                       <div class="flex justify-center gap-2">
                         <button onclick={() => bukaGaleri(item)} class="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-100 transition">Galeri</button>
                         <button onclick={() => setEditArtikel(item)} class="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-100 transition">Edit</button>
@@ -479,7 +502,6 @@
     <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
       <div class="bg-white w-full max-w-3xl max-h-[90vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
-        <!-- Header Modal -->
         <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <div>
             <h3 class="text-lg font-bold text-slate-800">Kelola Galeri Dokumentasi</h3>
@@ -490,10 +512,7 @@
           </button>
         </div>
 
-        <!-- Body Modal (Bisa di-scroll) -->
         <div class="p-6 overflow-y-auto flex-1 bg-white">
-          
-          <!-- Area Upload -->
           <div class="mb-8 p-6 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl text-center relative overflow-hidden group">
             <input type="file" accept="image/*" onchange={tambahFotoGaleri} disabled={isUploadingGaleri} class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
             <div class="flex flex-col items-center justify-center text-slate-500 group-hover:text-emerald-600 transition">
@@ -508,7 +527,6 @@
             </div>
           </div>
 
-          <!-- Grid Daftar Foto -->
           <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
             Koleksi Foto Saat Ini ({galeriList.length})
@@ -521,7 +539,6 @@
               {#each galeriList as foto}
                 <div class="relative group rounded-xl overflow-hidden bg-slate-100 aspect-video shadow-sm border border-slate-200">
                   <img src={foto.foto_url} alt="Galeri" class="w-full h-full object-cover" />
-                  <!-- Tombol Hapus overlay -->
                   <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <button onclick={() => hapusFotoGaleri(foto.id)} class="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition hover:scale-110 shadow-lg">
                       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -537,3 +554,13 @@
   {/if}
 
 </div>
+
+<style>
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+</style>
