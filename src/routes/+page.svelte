@@ -9,6 +9,9 @@
   
   let mapInstance; 
 
+  // STATE BARU BUAT HP: Nampung ID wisata yang lagi di-klik/mekar
+  let expandedWisataId = $state(null);
+
   // Fungsi Pintar Format Rupiah
   function formatRupiah(harga) {
     if (!harga) return '';
@@ -20,6 +23,15 @@
       }).format(harga);
     }
     return harga;
+  }
+
+  // FUNGSI BARU: Buat buka/tutup kartu wisata pas di klik (Mobile Friendly)
+  function toggleWisata(id) {
+    if (expandedWisataId === id) {
+      expandedWisataId = null; // Tutup kalau yang di-klik itu yang lagi kebuka
+    } else {
+      expandedWisataId = id; // Buka yang baru di-klik
+    }
   }
 
   onMount(async () => {
@@ -95,16 +107,13 @@
 
 <!-- SECTION: PROFIL -->
 <section id="profil" class="pt-20">
-<!-- 1. Hero Banner -->
+  <!-- 1. Hero Banner -->
   <div class="relative min-h-[85vh] flex items-center justify-center bg-slate-900">
     <div class="absolute inset-0">
-      <!-- Efek horor (mix-blend) dibuang, gambar dibikin lebih terang (opacity-50) -->
       <img src="https://knurnsmwprpdfhwenbpo.supabase.co/storage/v1/object/public/Asset/banner.jpg" class="w-full h-full object-cover opacity-50" alt="Jorong Lubuak Pulai" />
-      <!-- Gradient dibikin nyapu dari bawah ke atas biar smooth -->
       <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-slate-900/20"></div>
     </div>
     
-    <!-- Tambahin margin bottom (mb-16) biar kontennya naik dan tombolnya ngehindar dari kotak putih -->
     <div class="relative z-10 text-center px-4 max-w-4xl mx-auto mb-16 mt-10">
       <p class="text-xs md:text-sm text-emerald-400 font-bold mb-4 tracking-[0.2em] uppercase flex items-center justify-center gap-2">
         <span class="w-8 h-px bg-emerald-400"></span> Satu Klik Mengenal Desa <span class="w-8 h-px bg-emerald-400"></span>
@@ -199,17 +208,23 @@
           <div id="map" class="w-full h-full rounded-2xl z-0"></div>
         </div>
 
-        <!-- DAFTAR WISATA -->
+        <!-- DAFTAR WISATA YANG UDAH DIBENERIN BUAT HP -->
         <div class="lg:col-span-1 flex flex-col gap-4 h-[550px] overflow-y-auto pr-3 custom-scrollbar">
           {#each wisataList as wisata}
-            <div class="group bg-white rounded-2xl shadow-sm border border-slate-200 p-6 cursor-pointer hover:border-emerald-500 hover:shadow-lg transition-all duration-300">
+            <div 
+              onclick={() => toggleWisata(wisata.id)}
+              class="bg-white rounded-2xl shadow-sm border p-6 cursor-pointer transition-all duration-300 {expandedWisataId === wisata.id ? 'border-emerald-500 shadow-lg' : 'border-slate-200 hover:border-emerald-500'}"
+            >
               <div class="flex justify-between items-center mb-1">
                 <h3 class="font-extrabold text-lg text-slate-800">{wisata.nama_tempat}</h3>
-                <span class="text-emerald-500 bg-emerald-50 p-1.5 rounded-lg group-hover:rotate-180 transition-all duration-300"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+                <span class="text-emerald-500 bg-emerald-50 p-1.5 rounded-lg transition-transform duration-300 {expandedWisataId === wisata.id ? 'rotate-180' : ''}">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </span>
               </div>
               <p class="text-xs font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wider"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> {wisata.lokasi}</p>
               
-              <div class="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-500 ease-in-out">
+              <!-- Konten Sembunyi dipicu oleh state -->
+              <div class="grid transition-all duration-500 ease-in-out {expandedWisataId === wisata.id ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}">
                 <div class="overflow-hidden">
                   <div class="pt-4 mt-4 border-t border-slate-100">
                     <img src={wisata.foto_url} loading="lazy" alt={wisata.nama_tempat} class="w-full h-36 object-cover rounded-xl mb-4 shadow-sm" />
@@ -277,7 +292,7 @@
 
               <a href="https://wa.me/{umkm.nomor_wa.replace(/^0/, '62')}" target="_blank" class="mt-auto flex items-center justify-center gap-2 w-full bg-slate-900 text-white py-3.5 rounded-xl shadow-sm hover:bg-emerald-600 transition-all duration-300 font-bold hover:shadow-emerald-500/30">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/></svg>
-                Hubungi via WhatsApp
+                Pesan via WhatsApp
               </a>
             </div>
           </div>
