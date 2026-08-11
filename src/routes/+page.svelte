@@ -115,8 +115,16 @@
     <div class="flex justify-between items-center h-20">
       <div class="flex-shrink-0">
         <a href="#profil" class="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-          Sirukam<span class="text-emerald-600">Smart.</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600 drop-shadow-sm">
+          <!-- Garis melengkung ala perbukitan Sirukam / Atap -->
+          <path d="M2 20a10 10 0 0 1 10-14 10 10 0 0 1 10 14" />
+          <!-- Node Jaringan (Smart) -->
+          <path d="M12 15v5" />
+          <circle cx="12" cy="11" r="3" fill="currentColor" />
+          <circle cx="2" cy="20" r="2" fill="currentColor" />
+          <circle cx="22" cy="20" r="2" fill="currentColor" />
+        </svg>
+        Sirukam<span class="text-emerald-600">Smart.</span>
         </a>
       </div>
       
