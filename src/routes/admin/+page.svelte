@@ -4,7 +4,7 @@
   import { goto } from '$app/navigation';
 
   // ================= STATE TAB & DATA =================
-  let activeTab = $state('umkm'); 
+  let activeTab = $state('inbox'); // Default langsung buka inbox wok!
   let loading = $state(true);
   let isSubmitting = $state(false);
 
@@ -16,6 +16,10 @@
   // Data Wisata & Artikel
   let wisataList = $state([]);
   let artikelList = $state([]);
+
+  // ================= STATE KOTAK MASUK (BARU) =================
+  let pesanList = $state([]);
+  let pesanBelumDibaca = $derived(pesanList.filter(p => !p.is_read).length);
 
   // ================= STATE FORM WISATA =================
   let formWisata = $state({ nama_tempat: '', deskripsi: '', lokasi: '', koordinat: '', jalur_akses: '' });
@@ -47,6 +51,11 @@
 
   async function fetchSemuaData() {
     loading = true;
+
+    // Tarik Data Pesan Masuk
+    const { data: dataPesan } = await supabase.from('pesan_masuk').select('*').order('created_at', { ascending: false });
+    if (dataPesan) pesanList = dataPesan;
+
     const { data: dataUmkm } = await supabase.from('umkm').select('*').order('created_at', { ascending: false });
     if (dataUmkm) umkmList = dataUmkm;
 
@@ -55,7 +64,21 @@
 
     const { data: dataArtikel } = await supabase.from('artikel').select('*').order('created_at', { ascending: false });
     if (dataArtikel) artikelList = dataArtikel;
+    
     loading = false;
+  }
+
+  // ================= FUNGSI PESAN MASUK (BARU) =================
+  async function tandaiDibaca(id) {
+    await supabase.from('pesan_masuk').update({ is_read: true }).eq('id', id);
+    fetchSemuaData();
+  }
+
+  async function hapusPesan(id) {
+    if (confirm('Yakin ingin menghapus pesan ini permanen?')) {
+      await supabase.from('pesan_masuk').delete().eq('id', id);
+      fetchSemuaData();
+    }
   }
 
   // ================= FUNGSI UPLOAD GAMBAR =================
@@ -300,14 +323,28 @@
       </div>
       
       <div class="flex gap-2 overflow-x-auto border-b border-slate-100 pb-2">
+        <!-- TAB KOTAK MASUK -->
+        <button onclick={() => activeTab = 'inbox'} class="flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition {activeTab === 'inbox' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Kotak Masuk
+          {#if pesanBelumDibaca > 0}
+            <span class="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{pesanBelumDibaca}</span>
+          {/if}
+        </button>
+
+        <!-- TAB UMKM -->
         <button onclick={() => activeTab = 'umkm'} class="flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition {activeTab === 'umkm' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 18H7"/><path d="M7 14h.01"/></svg>
           Kelola UMKM
         </button>
+
+        <!-- TAB WISATA -->
         <button onclick={() => activeTab = 'wisata'} class="flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition {activeTab === 'wisata' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
           Destinasi Wisata
         </button>
+
+        <!-- TAB ARTIKEL -->
         <button onclick={() => activeTab = 'artikel'} class="flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition {activeTab === 'artikel' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
           Berita & Artikel
@@ -318,6 +355,48 @@
     {#if loading}
       <div class="text-center py-20 text-slate-500 font-bold animate-pulse text-lg">Sinkronisasi dengan server...</div>
     {:else}
+
+      <!-- ================= TAB KOTAK MASUK (BARU) ================= -->
+      {#if activeTab === 'inbox'}
+        <div>
+          <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full {pesanBelumDibaca > 0 ? 'bg-red-500 animate-pulse' : 'bg-slate-300'}"></span>
+            Pesan Masuk ({pesanList.length})
+          </h2>
+
+          {#if pesanList.length === 0}
+            <div class="bg-white p-8 rounded-2xl border border-dashed border-slate-300 text-center text-slate-500 font-medium">Kotak masuk masih kosong.</div>
+          {:else}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {#each pesanList as pesan}
+                <div class="bg-white p-6 rounded-2xl shadow-sm border transition-all duration-300 relative {pesan.is_read ? 'border-slate-200' : 'border-emerald-500 ring-2 ring-emerald-50'}">
+                  
+                  {#if !pesan.is_read}
+                    <div class="absolute -top-3 -right-3 bg-red-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-md uppercase tracking-wide">Baru</div>
+                  {/if}
+
+                  <div class="mb-4 pb-4 border-b border-slate-100">
+                    <h3 class="font-bold text-lg text-slate-800">{pesan.nama}</h3>
+                    <a href="mailto:{pesan.email}" class="text-sm text-blue-600 hover:underline font-medium break-all">{pesan.email}</a>
+                    <p class="text-[11px] text-slate-400 mt-1">{new Date(pesan.created_at).toLocaleString('id-ID')}</p>
+                  </div>
+                  
+                  <div class="mb-6 h-24 overflow-y-auto custom-scrollbar">
+                    <p class="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">{pesan.pesan}</p>
+                  </div>
+
+                  <div class="flex gap-2">
+                    {#if !pesan.is_read}
+                      <button onclick={() => tandaiDibaca(pesan.id)} class="flex-1 bg-emerald-50 text-emerald-600 py-2 rounded-xl text-sm font-bold hover:bg-emerald-100 transition">Tandai Dibaca</button>
+                    {/if}
+                    <button onclick={() => hapusPesan(pesan.id)} class="flex-1 bg-red-50 text-red-600 py-2 rounded-xl text-sm font-bold hover:bg-red-100 transition">Hapus</button>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/if}
 
       <!-- ================= TAB UMKM ================= -->
       {#if activeTab === 'umkm'}
@@ -354,7 +433,6 @@
                     <td class="p-4 text-slate-600">{item.kategori}</td>
                     <td class="p-4 text-slate-600">{item.nomor_wa}</td>
                     <td class="p-4">
-                      <!-- TOMBOL HAPUS UMKM DITAMBAHIN DISINI WOK -->
                       <div class="flex justify-center gap-2">
                         <button onclick={() => copyLinkWarga(item.id)} class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-slate-200 transition">Copy Link Edit</button>
                         <button onclick={() => hapusLapak(item.id)} class="bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-100 transition">Hapus</button>
@@ -389,7 +467,6 @@
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1">Upload Foto (Maks 4 Foto)</label>
                 {#if editWisataId && currentWisataFoto}
-                  <!-- Loop buat nampilin preview foto lama kalo pas mode edit -->
                   <div class="mb-2 flex gap-2 overflow-x-auto hide-scrollbar">
                     {#each currentWisataFoto.split(',') as pic}
                       <img src={pic} alt="Current" class="h-16 w-24 rounded-lg border object-cover shrink-0"/>
@@ -397,7 +474,6 @@
                   </div>
                   <p class="text-xs text-amber-600 font-medium mb-1">*Biarkan kosong jika tidak ingin ganti foto.</p>
                 {/if}
-                <!-- ATTRIBUTE multiple DITAMBAHIN DISINI WOK -->
                 <input type="file" accept="image/*" multiple bind:files={fileWisata} required={!editWisataId} class="w-full border border-slate-300 p-2 rounded-xl text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
                 <p class="text-[10px] text-slate-400 mt-1">Tekan CTRL/Tahan Layar untuk memilih lebih dari 1 foto.</p>
               </div>
@@ -413,7 +489,6 @@
               <tbody class="divide-y divide-slate-100">
                 {#each wisataList as item}
                   <tr class="hover:bg-slate-50/50">
-                    <!-- Ngambil gambar pertama aja buat dipajang di tabel (split(',') indeks 0) -->
                     <td class="p-4"><img src={item.foto_url.split(',')[0]} alt="wisata" class="w-16 h-16 object-cover rounded-xl shadow-sm border border-slate-100" /></td>
                     <td class="p-4">
                       <p class="font-bold text-slate-800 text-base">{item.nama_tempat}</p>
@@ -512,7 +587,7 @@
           </button>
         </div>
 
-        <div class="p-6 overflow-y-auto flex-1 bg-white">
+        <div class="p-6 overflow-y-auto flex-1 bg-white custom-scrollbar">
           <div class="mb-8 p-6 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl text-center relative overflow-hidden group">
             <input type="file" accept="image/*" onchange={tambahFotoGaleri} disabled={isUploadingGaleri} class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
             <div class="flex flex-col items-center justify-center text-slate-500 group-hover:text-emerald-600 transition">
@@ -562,5 +637,19 @@
   .hide-scrollbar {
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
   }
 </style>

@@ -9,22 +9,21 @@
   
   let mapInstance; 
 
-  // STATE BARU BUAT HP: Nampung ID wisata yang lagi di-klik/mekar
   let expandedWisataId = $state(null);
-  
-  // STATE BARU BUAT SLIDESHOW: Angka yang bakal jalan terus
   let carouselIndex = $state(0);
   let sliderInterval;
 
-// Fungsi Pintar Format Rupiah (Udah Support Range / Dash)
+  // ================= STATE FORM KONTAK BARU =================
+  let isContactModalOpen = $state(false);
+  let formKontak = $state({ nama: '', email: '', pesan: '' });
+  let isSending = $state(false);
+
   function formatRupiah(harga) {
     if (!harga) return '';
     const strHarga = harga.toString().trim();
 
-    // Fungsi asisten buat ngerupiahin satu angka
     const formatAngka = (angka) => {
       const cleanAngka = angka.trim();
-      // Kalo isinya cuma angka, sikat kasih Rp
       if (/^\d+$/.test(cleanAngka)) {
         return new Intl.NumberFormat('id-ID', {
           style: 'currency',
@@ -32,31 +31,57 @@
           minimumFractionDigits: 0
         }).format(cleanAngka);
       }
-      // Kalo ada hurufnya (misal "10rb"), biarin aja
       return cleanAngka; 
     };
 
-    // Kalo dia pake dash (misal: 50000 - 250000)
     if (strHarga.includes('-')) {
       const parts = strHarga.split('-');
-      // Format kiri dan kanan, terus gabungin lagi pake dash
       return parts.map(p => formatAngka(p)).join(' - ');
     } else {
-      // Kalo cuma 1 angka (misal: 10000)
       return formatAngka(strHarga);
     }
   }
-  // FUNGSI BARU: Buat buka/tutup kartu wisata pas di klik (Mobile Friendly)
+
   function toggleWisata(id) {
     if (expandedWisataId === id) {
-      expandedWisataId = null; // Tutup kalau yang di-klik itu yang lagi kebuka
+      expandedWisataId = null; 
     } else {
-      expandedWisataId = id; // Buka yang baru di-klik
+      expandedWisataId = id; 
     }
   }
 
+  // ================= FUNGSI KIRIM PESAN DOUBLE KILL =================
+  async function kirimPesan(e) {
+    e.preventDefault();
+    isSending = true;
+
+    try {
+      // 1. Simpan ke Supabase (Biar muncul di Dashboard Admin)
+      const { error } = await supabase.from('pesan_masuk').insert([formKontak]);
+      if (error) throw error;
+
+      // 2. Kirim Notif ke Email Pake FormSubmit (GANTI EMAIL DI BAWAH INI WOK!)
+      await fetch('https://formsubmit.co/ajax/email_lu_disini@gmail.com', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          Nama: formKontak.nama,
+          Email_Pengirim: formKontak.email,
+          Isi_Pesan: formKontak.pesan,
+          _subject: "Ada Pesan Baru dari Web Nagari Sirukam!"
+        })
+      });
+
+      alert('Terima kasih! Pesan Bapak/Ibu sudah terkirim ke Admin Nagari.');
+      isContactModalOpen = false;
+      formKontak = { nama: '', email: '', pesan: '' }; // Reset form
+    } catch (err) {
+      alert('Maaf, pesan gagal terkirim: ' + err.message);
+    }
+    isSending = false;
+  }
+
   onMount(async () => {
-    // Jalankan timer untuk Slideshow Otomatis (ganti tiap 3 detik / 3000ms)
     sliderInterval = setInterval(() => {
       carouselIndex++;
     }, 3000);
@@ -98,7 +123,6 @@
     }, 200);
   });
 
-  // Matiin timer kalo pindah halaman biar ga menuhin memori
   onDestroy(() => {
     if (sliderInterval) clearInterval(sliderInterval);
   });
@@ -109,22 +133,13 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </svelte:head>
 
-<!-- NAVBAR (Elegan & Modern) -->
 <nav class="fixed top-0 left-0 w-full bg-white/90 backdrop-blur-md border-b border-gray-100 z-50 transition-all duration-300">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex justify-between items-center h-20">
       <div class="flex-shrink-0">
         <a href="#profil" class="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600 drop-shadow-sm">
-          <!-- Garis melengkung ala perbukitan Sirukam / Atap -->
-          <path d="M2 20a10 10 0 0 1 10-14 10 10 0 0 1 10 14" />
-          <!-- Node Jaringan (Smart) -->
-          <path d="M12 15v5" />
-          <circle cx="12" cy="11" r="3" fill="currentColor" />
-          <circle cx="2" cy="20" r="2" fill="currentColor" />
-          <circle cx="22" cy="20" r="2" fill="currentColor" />
-        </svg>
-        Sirukam<span class="text-emerald-600">Smart.</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          Sirukam<span class="text-emerald-600">Smart.</span>
         </a>
       </div>
       
@@ -136,17 +151,16 @@
       </div>
 
       <div class="hidden md:block">
-        <a href="#kontak" class="flex items-center gap-2 bg-slate-900 hover:bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5">
+        <!-- TOMBOL BUKA MODAL KONTAK -->
+        <button onclick={() => isContactModalOpen = true} class="flex items-center gap-2 bg-slate-900 hover:bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5">
           Hubungi Kami
-        </a>
+        </button>
       </div>
     </div>
   </div>
 </nav>
 
-<!-- SECTION: PROFIL -->
 <section id="profil" class="pt-20">
-  <!-- 1. Hero Banner -->
   <div class="relative min-h-[85vh] flex items-center justify-center bg-slate-900">
     <div class="absolute inset-0">
       <img src="https://knurnsmwprpdfhwenbpo.supabase.co/storage/v1/object/public/Asset/banner.jpg" class="w-full h-full object-cover opacity-50" alt="Jorong Lubuak Pulai" />
@@ -164,7 +178,6 @@
         "Mengenal Potensi, Budaya, dan Kehidupan Masyarakat Nagari Sirukam secara Digital."
       </p>
       
-      <!-- Tombol CTA Utama -->
       <div class="flex flex-col sm:flex-row justify-center gap-4">
         <a href="#wisata" class="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-3.5 px-8 rounded-2xl transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-emerald-500/30">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
@@ -178,7 +191,6 @@
     </div>
   </div>
 
-  <!-- 2. Konten Profil -->
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-20">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-0 bg-white rounded-3xl shadow-xl p-4 md:p-8 border border-slate-100">
       <div class="text-center p-4">
@@ -199,7 +211,6 @@
       </div>
     </div>
 
-    <!-- Sambutan -->
     <div class="mt-24 mb-24 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
       <div class="relative">
         <svg class="absolute -top-10 -left-10 w-24 h-24 text-slate-100 -z-10" fill="currentColor" viewBox="0 0 32 32" aria-hidden="true"><path d="M9.352 4C4.456 7.456 1 13.12 1 19.36c0 5.088 3.072 8.064 6.624 8.064 3.36 0 5.856-2.688 5.856-5.856 0-3.168-2.208-5.472-5.088-5.472-.576 0-1.344.096-1.536.192.48-3.264 3.552-7.104 6.624-9.024L9.352 4zm16.512 0c-4.8 3.456-8.256 9.12-8.256 15.36 0 5.088 3.072 8.064 6.624 8.064 3.264 0 5.856-2.688 5.856-5.856 0-3.168-2.304-5.472-5.184-5.472-.576 0-1.248.096-1.44.192.48-3.264 3.456-7.104 6.528-9.024L25.864 4z"/></svg>
@@ -230,7 +241,6 @@
   </div>
 {:else}
 
-  <!-- ================= SECTION: WISATA ================= -->
   <section id="wisata" class="py-24 bg-slate-50 border-t border-slate-200">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center mb-16">
@@ -242,21 +252,15 @@
       </div>
       
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- PETA -->
         <div class="lg:col-span-2 h-[550px] bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden relative z-0 p-2">
           <div id="map" class="w-full h-full rounded-2xl z-0"></div>
         </div>
 
-        <!-- DAFTAR WISATA -->
         <div class="lg:col-span-1 flex flex-col gap-4 h-[550px] overflow-y-auto pr-3 custom-scrollbar">
           {#each wisataList as wisata}
-            <!-- Ambil semua link foto terus jadiin array -->
             {@const fotoArray = wisata.foto_url.split(',')}
 
-            <div 
-              onclick={() => toggleWisata(wisata.id)}
-              class="bg-white rounded-2xl shadow-sm border p-6 cursor-pointer transition-all duration-300 {expandedWisataId === wisata.id ? 'border-emerald-500 shadow-lg' : 'border-slate-200 hover:border-emerald-500'}"
-            >
+            <div onclick={() => toggleWisata(wisata.id)} class="bg-white rounded-2xl shadow-sm border p-6 cursor-pointer transition-all duration-300 {expandedWisataId === wisata.id ? 'border-emerald-500 shadow-lg' : 'border-slate-200 hover:border-emerald-500'}">
               <div class="flex justify-between items-center mb-1">
                 <h3 class="font-extrabold text-lg text-slate-800">{wisata.nama_tempat}</h3>
                 <span class="text-emerald-500 bg-emerald-50 p-1.5 rounded-lg transition-transform duration-300 {expandedWisataId === wisata.id ? 'rotate-180' : ''}">
@@ -265,25 +269,15 @@
               </div>
               <p class="text-xs font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wider"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> {wisata.lokasi}</p>
               
-              <!-- Konten Sembunyi dipicu oleh state -->
               <div class="grid transition-all duration-500 ease-in-out {expandedWisataId === wisata.id ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}">
                 <div class="overflow-hidden">
                   <div class="pt-4 mt-4 border-t border-slate-100 cursor-default" onclick={(e) => e.stopPropagation()}>
                     
-                    <!-- ================= AUTO SLIDESHOW WISATA (ALA PPT) ================= -->
                     <div class="relative w-full h-40 mb-4 rounded-xl overflow-hidden shadow-sm bg-slate-900">
-                      
-                      <!-- Gambar-gambarnya bakal tumpang tindih, opacity diatur otomatis -->
                       {#each fotoArray as foto, index}
-                        <img 
-                          src={foto} 
-                          loading="lazy" 
-                          alt={wisata.nama_tempat} 
-                          class="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out {index === (carouselIndex % fotoArray.length) ? 'opacity-100' : 'opacity-0'}" 
-                        />
+                        <img src={foto} loading="lazy" alt={wisata.nama_tempat} class="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out {index === (carouselIndex % fotoArray.length) ? 'opacity-100' : 'opacity-0'}" />
                       {/each}
 
-                      <!-- Indikator Titik (Dots) cuma muncul kalo fotonya lebih dari 1 -->
                       {#if fotoArray.length > 1}
                         <div class="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5 z-10">
                           {#each fotoArray as _, index}
@@ -291,7 +285,6 @@
                           {/each}
                         </div>
                       {/if}
-
                     </div>
                     
                     <p class="text-sm text-slate-600 line-clamp-3 mb-4 font-medium leading-relaxed">{wisata.deskripsi}</p>
@@ -304,7 +297,6 @@
             </div>
           {:else}
             <div class="bg-white p-8 rounded-2xl border border-dashed border-slate-300 text-center flex flex-col items-center justify-center h-full">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" class="text-slate-300 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               <p class="text-slate-500 font-medium">Belum ada destinasi wisata.</p>
             </div>
           {/each}
@@ -313,7 +305,6 @@
     </div>
   </section>
 
-  <!-- ================= SECTION: UMKM ================= -->
   <section id="umkm" class="py-24 bg-white border-t border-slate-200">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center mb-16">
@@ -351,34 +342,24 @@
             <div class="px-6 pb-6 flex-1 flex flex-col">
               <h3 class="font-extrabold text-xl text-slate-800 mb-1">{umkm.nama_usaha}</h3>
               <p class="text-emerald-600 font-extrabold text-lg mb-4">{formatRupiah(umkm.harga)}</p>
-              
-              <p class="text-slate-500 text-sm mb-6 line-clamp-3 font-medium leading-relaxed">
-                {umkm.deskripsi || 'Lapak ini belum menambahkan deskripsi produk.'}
-              </p>
-
+              <p class="text-slate-500 text-sm mb-6 line-clamp-3 font-medium leading-relaxed">{umkm.deskripsi || 'Lapak ini belum menambahkan deskripsi produk.'}</p>
               <a href="https://wa.me/{umkm.nomor_wa.replace(/^0/, '62')}" target="_blank" class="mt-auto flex items-center justify-center gap-2 w-full bg-slate-900 text-white py-3.5 rounded-xl shadow-sm hover:bg-emerald-600 transition-all duration-300 font-bold hover:shadow-emerald-500/30">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/></svg>
-                Hubungi via WhatsApp
+                Pesan via WhatsApp
               </a>
             </div>
           </div>
         {/each}
       </div>
 
-      <!-- CTA DAFTAR LAPAK -->
       <div class="mt-20 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-[2rem] p-10 md:p-14 border border-emerald-100 shadow-sm text-center relative overflow-hidden group">
         <div class="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-emerald-200/50 rounded-full blur-3xl group-hover:bg-emerald-300/50 transition duration-700"></div>
         <div class="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-teal-200/50 rounded-full blur-3xl group-hover:bg-teal-300/50 transition duration-700"></div>
-        
         <div class="relative z-10 flex flex-col items-center">
           <div class="w-20 h-20 bg-white rounded-2xl shadow-sm flex items-center justify-center text-emerald-600 mb-6 border border-emerald-100">
             <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 18H7"/><path d="M7 14h.01"/></svg>
           </div>
           <h3 class="text-3xl md:text-4xl font-extrabold text-slate-800 mb-4 tracking-tight">Punya Usaha di Nagari Sirukam?</h3>
-          <p class="text-slate-600 mb-10 max-w-xl mx-auto text-base md:text-lg font-medium">
-            Tingkatkan jangkauan pembeli dan majukan perekonomian lokal dengan mendaftarkan lapak Anda ke etalase digital Nagari secara <span class="font-bold text-emerald-600">Gratis!</span>
-          </p>
-          
+          <p class="text-slate-600 mb-10 max-w-xl mx-auto text-base md:text-lg font-medium">Tingkatkan jangkauan pembeli dan majukan perekonomian lokal dengan mendaftarkan lapak Anda ke etalase digital Nagari secara <span class="font-bold text-emerald-600">Gratis!</span></p>
           <a href="/register" class="inline-flex items-center justify-center gap-3 bg-slate-900 text-white font-bold px-10 py-4 rounded-2xl hover:bg-emerald-600 hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-500/30 transition-all duration-300">
             Daftarkan Lapak Anda <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
           </a>
@@ -388,7 +369,6 @@
     </div>
   </section>
 
-  <!-- ================= SECTION: BERITA ================= -->
   <section id="berita" class="py-24 bg-slate-50 border-t border-slate-200">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center mb-16">
@@ -405,16 +385,13 @@
             <div class="overflow-hidden">
               <img src={artikel.foto_url} loading="lazy" alt={artikel.judul} class="w-full h-52 object-cover bg-slate-100 group-hover:scale-105 transition duration-700" />
             </div>
-            
             <div class="p-8 flex-1 flex flex-col">
               <h3 class="font-extrabold text-xl text-slate-800 mb-3 leading-snug group-hover:text-emerald-600 transition">{artikel.judul}</h3>
               <p class="text-xs text-slate-400 mb-5 font-bold uppercase tracking-wider flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 Oleh: {artikel.penulis}
               </p>
-              
               <p class="text-sm text-slate-600 line-clamp-3 mb-8 font-medium leading-relaxed">{artikel.konten}</p>
-              
               <a href="/berita/{artikel.id}" class="mt-auto inline-flex items-center gap-2 text-emerald-600 font-bold text-sm hover:text-emerald-700 transition group/btn">
                 Baca Selengkapnya <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="group-hover/btn:translate-x-1 transition-transform"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
               </a>
@@ -427,7 +404,6 @@
 
 {/if}
 
-<!-- FOOTER -->
 <footer id="kontak" class="bg-slate-900 text-slate-400 py-16 border-t border-slate-800">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex flex-col md:flex-row justify-between items-center gap-8">
@@ -445,23 +421,49 @@
   </div>
 </footer>
 
+<!-- ================= POP-UP MODAL KONTAK ================= -->
+{#if isContactModalOpen}
+  <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden relative">
+      
+      <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+        <h3 class="font-extrabold text-slate-800 text-lg flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          Hubungi Admin
+        </h3>
+        <button onclick={() => isContactModalOpen = false} class="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-xl transition">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <form onsubmit={kirimPesan} class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-bold text-slate-700 mb-1">Nama Lengkap</label>
+          <input type="text" bind:value={formKontak.nama} required placeholder="Contoh: Gastro Adria" class="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition bg-slate-50 focus:bg-white" />
+        </div>
+        <div>
+          <label class="block text-sm font-bold text-slate-700 mb-1">Alamat Email</label>
+          <input type="email" bind:value={formKontak.email} required placeholder="email_anda@gmail.com" class="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition bg-slate-50 focus:bg-white" />
+        </div>
+        <div>
+          <label class="block text-sm font-bold text-slate-700 mb-1">Pesan Anda</label>
+          <textarea bind:value={formKontak.pesan} required rows="4" placeholder="Tulis pesan, saran, atau pertanyaan di sini..." class="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition bg-slate-50 focus:bg-white"></textarea>
+        </div>
+        
+        <button type="submit" disabled={isSending} class="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-700 transition shadow-sm hover:shadow-emerald-500/30 flex justify-center items-center gap-2 mt-2 disabled:opacity-50">
+          {isSending ? 'Mengirim...' : 'Kirim Pesan Sekarang'}
+        </button>
+      </form>
+    </div>
+  </div>
+{/if}
+
 <style>
   :global(html) {
     scroll-behavior: smooth;
   }
-
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: #f8fafc;
-    border-radius: 10px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 10px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-  }
+  .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; border-radius: 10px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 </style>
