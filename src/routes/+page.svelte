@@ -5,6 +5,7 @@
   let wisataList = $state([]);
   let umkmList = $state([]);
   let artikelList = $state([]);
+  let perangkatList = $state([]); // STATE BARU BUAT PERANGKAT
   let loading = $state(true);
   
   let mapInstance; 
@@ -50,17 +51,24 @@
     }
   }
 
+  // Fungsi buat bikin inisial otomatis dari nama (Misal: Sullftak Dev -> SD)
+  function getInitials(name) {
+    if (!name) return 'NK';
+    const words = name.replace(/Bapak |Ibu |Pak |Bu /gi, '').trim().split(' ');
+    if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+
   // ================= FUNGSI KIRIM PESAN DOUBLE KILL =================
   async function kirimPesan(e) {
     e.preventDefault();
     isSending = true;
 
     try {
-      // 1. Simpan ke Supabase (Biar muncul di Dashboard Admin)
       const { error } = await supabase.from('pesan_masuk').insert([formKontak]);
       if (error) throw error;
 
-      // 2. Kirim Notif ke Email Pake FormSubmit (GANTI EMAIL DI BAWAH INI WOK!)
+      // GANTI EMAIL DI BAWAH INI WOK!
       await fetch('https://formsubmit.co/ajax/email_lu_disini@gmail.com', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -74,7 +82,7 @@
 
       alert('Terima kasih! Pesan Bapak/Ibu sudah terkirim ke Admin Nagari.');
       isContactModalOpen = false;
-      formKontak = { nama: '', email: '', pesan: '' }; // Reset form
+      formKontak = { nama: '', email: '', pesan: '' }; 
     } catch (err) {
       alert('Maaf, pesan gagal terkirim: ' + err.message);
     }
@@ -84,7 +92,7 @@
   onMount(async () => {
     sliderInterval = setInterval(() => {
       carouselIndex++;
-    }, 3000);
+    }, 4000); // Muter tiap 4 detik
 
     const { data: dataWisata } = await supabase.from('wisata').select('*').order('created_at', { ascending: false });
     if (dataWisata) wisataList = dataWisata;
@@ -94,6 +102,10 @@
 
     const { data: dataArtikel } = await supabase.from('artikel').select('*').order('created_at', { ascending: false }).limit(3);
     if (dataArtikel) artikelList = dataArtikel;
+
+    // Tarik data perangkat nagari
+    const { data: dataPerangkat } = await supabase.from('perangkat_nagari').select('*').order('created_at', { ascending: true });
+    if (dataPerangkat) perangkatList = dataPerangkat;
 
     loading = false;
 
@@ -138,7 +150,7 @@
     <div class="flex justify-between items-center h-20">
       <div class="flex-shrink-0">
         <a href="#profil" class="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600"><path d="M2 11c3.5 0 4.5-5 10-9 5.5 4 6.5 9 10 9"/><path d="M4 11v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9"/><path d="M10 21v-5a2 2 0 0 1 4 0v5"/><line x1="2" y1="21" x2="22" y2="21"/></svg>
           Sirukam<span class="text-emerald-600">Smart.</span>
         </a>
       </div>
@@ -151,7 +163,6 @@
       </div>
 
       <div class="hidden md:block">
-        <!-- TOMBOL BUKA MODAL KONTAK -->
         <button onclick={() => isContactModalOpen = true} class="flex items-center gap-2 bg-slate-900 hover:bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5">
           Hubungi Kami
         </button>
@@ -202,7 +213,7 @@
         <div class="text-3xl md:text-4xl font-extrabold text-slate-800">321</div><div class="text-xs md:text-sm font-bold text-slate-400 mt-1 uppercase tracking-wider">Kepala Keluarga</div>
       </div>
       <div class="text-center p-4 border-t md:border-t-0 md:border-l border-slate-100">
-        <div class="mx-auto w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-3"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 18H7"/><path d="M7 14h.01"/></svg></div>
+        <div class="mx-auto w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-3"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z"/><path d="m3 9 2.45-4.9A2 2 0 0 1 7.24 3h9.52a2 2 0 0 1 1.8 1.1L21 9"/><path d="M12 3v6"/></svg></div>
         <div class="text-3xl md:text-4xl font-extrabold text-slate-800">30+</div><div class="text-xs md:text-sm font-bold text-slate-400 mt-1 uppercase tracking-wider">UMKM Aktif</div>
       </div>
       <div class="text-center p-4 border-t md:border-t-0 md:border-l border-slate-100">
@@ -211,24 +222,61 @@
       </div>
     </div>
 
+    <!-- ================= SECTION SAMBUTAN & CAROUSEL ================= -->
     <div class="mt-24 mb-24 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
       <div class="relative">
         <svg class="absolute -top-10 -left-10 w-24 h-24 text-slate-100 -z-10" fill="currentColor" viewBox="0 0 32 32" aria-hidden="true"><path d="M9.352 4C4.456 7.456 1 13.12 1 19.36c0 5.088 3.072 8.064 6.624 8.064 3.36 0 5.856-2.688 5.856-5.856 0-3.168-2.208-5.472-5.088-5.472-.576 0-1.344.096-1.536.192.48-3.264 3.552-7.104 6.624-9.024L9.352 4zm16.512 0c-4.8 3.456-8.256 9.12-8.256 15.36 0 5.088 3.072 8.064 6.624 8.064 3.264 0 5.856-2.688 5.856-5.856 0-3.168-2.304-5.472-5.184-5.472-.576 0-1.248.096-1.44.192.48-3.264 3.456-7.104 6.528-9.024L25.864 4z"/></svg>
         <div class="w-16 h-1.5 bg-emerald-500 rounded-full mb-6"></div>
-        <h2 class="text-3xl md:text-4xl font-extrabold text-slate-800 mb-6 tracking-tight">Sambutan Kepala Jorong</h2>
+        <h2 class="text-3xl md:text-4xl font-extrabold text-slate-800 mb-6 tracking-tight">Sambutan Perangkat Nagari</h2>
         <p class="text-slate-600 leading-relaxed mb-4 text-justify font-medium">"Selamat datang di portal resmi digital Jorong Lubuak Pulai. Kami berharap platform ini dapat menjadi jembatan informasi yang kuat untuk menghubungkan masyarakat, pelaku usaha UMKM, dan wisatawan dari berbagai daerah."</p>
         <p class="text-slate-600 leading-relaxed text-justify font-medium">Dengan semangat gotong royong, mari kita wujudkan Lubuak Pulai yang maju, mandiri, dan berbasis teknologi, tanpa sedikitpun meninggalkan nilai-nilai adat dan tradisi budaya leluhur kita.</p>
-        <div class="mt-8 flex items-center gap-4">
-          <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold">NK</div>
-          <div>
-            <div class="font-extrabold text-slate-800 text-lg">Bapak Nama Kades</div>
-            <div class="text-emerald-600 text-sm font-bold uppercase tracking-wider">Kepala Jorong Lubuak Pulai</div>
-          </div>
+        
+        <div class="mt-8 relative h-16">
+          {#if perangkatList.length > 0}
+            {#each perangkatList as p, i}
+              <div class="absolute inset-0 flex items-center gap-4 transition-all duration-700 ease-in-out {i === (carouselIndex % perangkatList.length) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}">
+                <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold">{getInitials(p.nama)}</div>
+                <div>
+                  <div class="font-extrabold text-slate-800 text-lg">{p.nama}</div>
+                  <div class="text-emerald-600 text-sm font-bold uppercase tracking-wider">{p.jabatan}</div>
+                </div>
+              </div>
+            {/each}
+          {:else}
+            <!-- Fallback kalau admin belum ngisi -->
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold">NK</div>
+              <div>
+                <div class="font-extrabold text-slate-800 text-lg">Bapak Nama Kades</div>
+                <div class="text-emerald-600 text-sm font-bold uppercase tracking-wider">Kepala Jorong Lubuak Pulai</div>
+              </div>
+            </div>
+          {/if}
         </div>
       </div>
-      <div class="rounded-3xl overflow-hidden shadow-2xl h-[450px] relative group">
-        <div class="absolute inset-0 bg-emerald-900/10 group-hover:bg-transparent transition duration-500 z-10"></div>
-        <img src="https://knurnsmwprpdfhwenbpo.supabase.co/storage/v1/object/public/Asset/dont%20even%20joke%20lad.jpg" class="w-full h-full object-cover group-hover:scale-105 transition duration-700" alt="Balai Desa" />
+
+      <div class="rounded-3xl overflow-hidden shadow-2xl h-[450px] relative bg-slate-100">
+        {#if perangkatList.length > 0}
+          {#each perangkatList as p, i}
+            <!-- RAHASIA ANTI GEPENG: absolute inset-0 w-full h-full object-cover -->
+            <img src={p.foto_url} class="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 {i === (carouselIndex % perangkatList.length) ? 'opacity-100' : 'opacity-0'}" alt={p.nama} />
+          {/each}
+          
+          <!-- Indikator Bulat-Bulat Carousel -->
+          {#if perangkatList.length > 1}
+            <div class="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-20">
+              {#each perangkatList as _, i}
+                <div class="w-2 h-2 rounded-full transition-colors duration-500 {i === (carouselIndex % perangkatList.length) ? 'bg-white scale-125' : 'bg-white/50'}"></div>
+              {/each}
+            </div>
+          {/if}
+        {:else}
+          <!-- Fallback foto default -->
+          <img src="https://knurnsmwprpdfhwenbpo.supabase.co/storage/v1/object/public/Asset/dont%20even%20joke%20lad.jpg" class="w-full h-full object-cover" alt="Balai Desa" />
+        {/if}
+        
+        <!-- Gradient Biar Elegan -->
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent pointer-events-none z-10"></div>
       </div>
     </div>
   </div>
@@ -245,7 +293,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center mb-16">
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 mb-6 shadow-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
         </div>
         <h2 class="text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight">Peta Destinasi Wisata</h2>
         <p class="text-slate-500 mt-3 font-medium max-w-2xl mx-auto">Jelajahi surga tersembunyi Sirukam dan temukan keindahan alam langsung dari genggaman Anda.</p>
@@ -309,7 +357,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center mb-16">
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-100 text-amber-600 mb-6 shadow-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 18H7"/><path d="M7 14h.01"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z"/><path d="m3 9 2.45-4.9A2 2 0 0 1 7.24 3h9.52a2 2 0 0 1 1.8 1.1L21 9"/><path d="M12 3v6"/></svg>
         </div>
         <h2 class="text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight">Lapak Warga (UMKM)</h2>
         <p class="text-slate-500 mt-3 font-medium max-w-2xl mx-auto">Dukung perekonomian lokal dengan membeli produk karya tangan warga Nagari Sirukam.</p>
@@ -373,7 +421,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center mb-16">
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-purple-100 text-purple-600 mb-6 shadow-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.5 13.5c0 2.2-2 4.5-4.5 4.5H5c-1.1 0-2-.9-2-2v-4"/></svg>
         </div>
         <h2 class="text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight">Berita & Informasi</h2>
         <p class="text-slate-500 mt-3 font-medium max-w-2xl mx-auto">Kabar terbaru, pengumuman, dan cerita warga langsung dari Balai Nagari Sirukam.</p>
@@ -409,7 +457,7 @@
     <div class="flex flex-col md:flex-row justify-between items-center gap-8">
       <div class="text-center md:text-left">
         <div class="text-3xl font-extrabold text-white tracking-tight mb-3 flex items-center justify-center md:justify-start gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M2 11c3.5 0 4.5-5 10-9 5.5 4 6.5 9 10 9"/><path d="M4 11v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9"/><path d="M10 21v-5a2 2 0 0 1 4 0v5"/><line x1="2" y1="21" x2="22" y2="21"/></svg>
           Sirukam<span class="text-emerald-500">Smart.</span>
         </div>
         <p class="text-sm font-medium">Pusat Informasi & Potensi Nagari Sirukam, Kabupaten Solok.</p>
