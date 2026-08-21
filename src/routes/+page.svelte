@@ -463,7 +463,7 @@
         <p class="text-sm font-medium">Pusat Informasi & Potensi Nagari Sirukam, Kabupaten Solok.</p>
       </div>
       <div class="text-sm text-center md:text-right font-medium">
-        &copy; 2026 Pemerintah Nagari Sirukam.<br>Dikelola dengan ❤️ oleh Admin Nagari Sirukam.
+        &copy; 2026 Pemerintah Nagari Sirukam.<br>Developed By : KKN LP3I Sirukam 2026
       </div>
     </div>
   </div>
