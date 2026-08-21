@@ -150,8 +150,39 @@
     <div class="flex justify-between items-center h-20">
       <div class="flex-shrink-0">
         <a href="#profil" class="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600"><path d="M2 11c3.5 0 4.5-5 10-9 5.5 4 6.5 9 10 9"/><path d="M4 11v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9"/><path d="M10 21v-5a2 2 0 0 1 4 0v5"/><line x1="2" y1="21" x2="22" y2="21"/></svg>
-          Sirukam<span class="text-emerald-600">Smart.</span>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" class="h-14 w-auto text-emerald-600" fill="currentColor">
+            
+            <!-- Atap Utama (4 Gonjong Belakang) -->
+            <path d="M 10,5 Q 30,70 60,25 Q 100,75 140,25 Q 170,70 190,5 L 175,65 L 25,65 Z" />
+            
+            <!-- Badan Rumah Utama -->
+            <polygon points="30,67 170,67 155,95 45,95" />
+            
+            <!-- Anjungan (Bagian Tengah yang Menonjol) -->
+            <rect x="85" y="67" width="30" height="33" stroke="white" stroke-width="2" />
+            <!-- Atap Anjungan (Gonjong Tengah) -->
+            <path d="M 73,67 Q 90,60 100,25 Q 110,60 127,67 Z" stroke="white" stroke-width="2" stroke-linejoin="round" />
+            
+            <!-- Jendela & Pintu (Warna Putih) -->
+            <path d="M 50,75 h 8 v 10 h -8 z 
+                    M 68,75 h 8 v 10 h -8 z 
+                    M 124,75 h 8 v 10 h -8 z 
+                    M 142,75 h 8 v 10 h -8 z 
+                    M 93,78 h 14 v 22 h -14 z" fill="white" />
+            
+            <!-- Tiang-Tiang Pondasi -->
+            <path d="M 48,95 v 15 h 3 v -15 
+                    M 63,95 v 15 h 3 v -15 
+                    M 78,95 v 15 h 3 v -15 
+                    M 119,95 v 15 h 3 v -15 
+                    M 134,95 v 15 h 3 v -15 
+                    M 149,95 v 15 h 3 v -15" />
+            
+            <!-- Tangga Masuk -->
+            <path d="M 92,100 h 16 v 3 h -16 z 
+                    M 88,104 h 24 v 3 h -24 z 
+                    M 84,108 h 32 v 3 h -32 z" />
+          </svg>          Sirukam<span class="text-emerald-600">Smart.</span>
         </a>
       </div>
       
