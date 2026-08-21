@@ -205,7 +205,7 @@
 <section id="profil" class="pt-20">
   <div class="relative min-h-[85vh] flex items-center justify-center bg-slate-900">
     <div class="absolute inset-0">
-      <img src="https://knurnsmwprpdfhwenbpo.supabase.co/storage/v1/object/public/Asset/banner.jpg" class="w-full h-full object-cover opacity-50" alt="Jorong Lubuak Pulai" />
+      <img src="https://knurnsmwprpdfhwenbpo.supabase.co/storage/v1/object/public/Asset/banner.JPG" class="w-full h-full object-cover opacity-50" alt="Jorong Lubuak Pulai" />
       <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-slate-900/20"></div>
     </div>
     
